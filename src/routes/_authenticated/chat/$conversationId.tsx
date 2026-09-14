@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -41,15 +42,19 @@ function ConversationPage() {
     );
   }
 
-  const initial: UiMessage[] = (messages.data ?? [])
-    .filter((row) => row.role === "user" || row.role === "assistant")
-    .map((row) => ({
-      id: row.id,
-      role: row.role as "user" | "assistant",
-      content: row.content,
-      isError: row.is_error,
-      createdAt: row.created_at,
-    }));
+  const initial = useMemo<UiMessage[]>(
+    () =>
+      (messages.data ?? [])
+        .filter((row) => row.role === "user" || row.role === "assistant")
+        .map((row) => ({
+          id: row.id,
+          role: row.role as "user" | "assistant",
+          content: row.content,
+          isError: row.is_error,
+          createdAt: row.created_at,
+        })),
+    [messages.data],
+  );
 
   const title = conversations.data?.find((row) => row.id === conversationId)?.title ?? "New chat";
 
