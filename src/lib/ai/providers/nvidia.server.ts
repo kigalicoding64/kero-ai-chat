@@ -3,11 +3,11 @@
 import { MissingCredentialsError, type AiProvider, type ChatMessage } from "../types";
 
 export const NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1";
-export const DEFAULT_NVIDIA_MODEL = "meta/llama-3.3-70b-instruct";
+export const DEFAULT_NVIDIA_MODEL = "nvidia/nemotron-3-super-120b-a12b";
 export const FALLBACK_NVIDIA_MODELS = [
-  "meta/llama-3.3-70b-instruct",
-  "meta/llama-3.1-70b-instruct",
-  "meta/llama-3.1-8b-instruct",
+  "nvidia/nemotron-3-super-120b-a12b",
+  "nvidia/nemotron-3.5-lightning-30b-a3b",
+  "nvidia/nemotron-nano-3-30b-a3b",
 ];
 
 function readKey(): string | undefined {
