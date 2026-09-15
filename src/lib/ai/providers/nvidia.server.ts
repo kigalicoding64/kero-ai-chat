@@ -60,6 +60,8 @@ export const nvidiaProvider: AiProvider = {
       temperature: 0.6,
       top_p: 0.95,
       max_tokens: 2048,
+      // Nemotron models emit their internal reasoning into the reply unless asked not to.
+      chat_template_kwargs: { thinking: false },
     };
     const init: RequestInit = { method: "POST", body: JSON.stringify(body) };
     if (signal) init.signal = signal;
