@@ -49,11 +49,15 @@ export function ChatView({ conversationId, initialMessages, title, onConversatio
   const rename = useServerFn(renameConversation);
   const trimFrom = useServerFn(deleteMessagesFrom);
 
+  // Only reload from the server when the conversation itself changes; refetches of the
+  // same conversation must not clobber (or duplicate) what is on screen mid-stream.
+  const initialRef = useRef(initialMessages);
+  initialRef.current = initialMessages;
   useEffect(() => {
-    setMessages(initialMessages);
+    setMessages(initialRef.current);
     setInput("");
     inputRef.current?.focus();
-  }, [conversationId, initialMessages]);
+  }, [conversationId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
