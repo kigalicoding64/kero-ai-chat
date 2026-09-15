@@ -80,7 +80,13 @@ export const nvidiaProvider: AiProvider = {
     const messages: ChatMessage[] = [{ role: "user", content: prompt }];
     const res = await nvidiaFetch("/chat/completions", {
       method: "POST",
-      body: JSON.stringify({ model, messages, stream: false, max_tokens: 64 }),
+      body: JSON.stringify({
+        model,
+        messages,
+        stream: false,
+        max_tokens: 64,
+        chat_template_kwargs: { thinking: false },
+      }),
     });
     if (!res.ok) {
       throw new Error(`NVIDIA completion responded ${res.status}: ${(await res.text()).slice(0, 400)}`);
