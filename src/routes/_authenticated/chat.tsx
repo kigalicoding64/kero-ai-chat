@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { createConversation, deleteConversation, listConversations } from "@/lib/conversations.functions";
-import { getProviderStatus } from "@/lib/diagnostics.functions";
+import { ConnectionBadge } from "@/components/kero/ConnectionBadge";
 
 export const Route = createFileRoute("/_authenticated/chat")({
   head: () => ({
