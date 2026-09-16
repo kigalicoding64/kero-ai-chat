@@ -51,18 +51,12 @@ function ChatLayout() {
   const list = useServerFn(listConversations);
   const create = useServerFn(createConversation);
   const remove = useServerFn(deleteConversation);
-  const status = useServerFn(getProviderStatus);
 
   const conversations = useQuery({
     queryKey: ["conversations"],
     queryFn: () => list(),
   });
 
-  const providerStatus = useQuery({
-    queryKey: ["provider-status"],
-    queryFn: () => status(),
-    staleTime: 60_000,
-  });
 
   const newChat = useMutation({
     mutationFn: () => create({ data: {} }),
