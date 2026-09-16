@@ -3,8 +3,6 @@ import { createFileRoute, Link, Outlet, useNavigate, useParams } from "@tanstack
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
-  CircleAlert,
-  CircleCheck,
   LogOut,
   MessageSquarePlus,
   Search,
@@ -148,20 +146,7 @@ function ChatLayout() {
         </nav>
 
         <div className="space-y-1 border-t border-sidebar-border px-3 py-3">
-          <div className="flex items-center gap-2 px-2 py-1 text-xs">
-            {providerStatus.data?.configured ? (
-              <CircleCheck className="size-4 text-primary" />
-            ) : (
-              <CircleAlert className="size-4 text-destructive" />
-            )}
-            <span className="truncate text-muted-foreground">
-              {providerStatus.data
-                ? providerStatus.data.configured
-                  ? `${providerStatus.data.label} connected`
-                  : "AI key missing"
-                : "Checking connection…"}
-            </span>
-          </div>
+          <ConnectionBadge />
           <Link
             to="/admin"
             className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-muted-foreground transition hover:bg-sidebar-accent hover:text-foreground"
