@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { authRedirectUrl } from "@/lib/runtime-config";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -46,7 +47,7 @@ function AuthPage() {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${window.location.origin}/chat` },
+          options: { emailRedirectTo: authRedirectUrl("/chat") },
         });
         if (error) throw error;
         toast.success("Account created. Check your inbox to confirm your email.");

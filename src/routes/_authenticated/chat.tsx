@@ -3,8 +3,6 @@ import { createFileRoute, Link, Outlet, useNavigate, useParams } from "@tanstack
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
-  CircleAlert,
-  CircleCheck,
   LogOut,
   MessageSquarePlus,
   Search,
@@ -19,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { createConversation, deleteConversation, listConversations } from "@/lib/conversations.functions";
-import { getProviderStatus } from "@/lib/diagnostics.functions";
+import { ConnectionBadge } from "@/components/kero/ConnectionBadge";
 
 export const Route = createFileRoute("/_authenticated/chat")({
   head: () => ({
@@ -51,18 +49,12 @@ function ChatLayout() {
   const list = useServerFn(listConversations);
   const create = useServerFn(createConversation);
   const remove = useServerFn(deleteConversation);
-  const status = useServerFn(getProviderStatus);
 
   const conversations = useQuery({
     queryKey: ["conversations"],
     queryFn: () => list(),
   });
 
-  const providerStatus = useQuery({
-    queryKey: ["provider-status"],
-    queryFn: () => status(),
-    staleTime: 60_000,
-  });
 
   const newChat = useMutation({
     mutationFn: () => create({ data: {} }),
@@ -154,20 +146,7 @@ function ChatLayout() {
         </nav>
 
         <div className="space-y-1 border-t border-sidebar-border px-3 py-3">
-          <div className="flex items-center gap-2 px-2 py-1 text-xs">
-            {providerStatus.data?.configured ? (
-              <CircleCheck className="size-4 text-primary" />
-            ) : (
-              <CircleAlert className="size-4 text-destructive" />
-            )}
-            <span className="truncate text-muted-foreground">
-              {providerStatus.data
-                ? providerStatus.data.configured
-                  ? `${providerStatus.data.label} connected`
-                  : "AI key missing"
-                : "Checking connection…"}
-            </span>
-          </div>
+          <ConnectionBadge />
           <Link
             to="/admin"
             className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-muted-foreground transition hover:bg-sidebar-accent hover:text-foreground"

@@ -17,6 +17,7 @@ import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/c
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat/index'
 import { Route as AuthenticatedChatConversationIdRouteImport } from './routes/_authenticated/chat/$conversationId'
+import { Route as ApiPublicKeroHealthRouteImport } from './routes/api/public/kero-health'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -58,6 +59,11 @@ const AuthenticatedChatConversationIdRoute =
     path: '/$conversationId',
     getParentRoute: () => AuthenticatedChatRoute,
   } as any)
+const ApiPublicKeroHealthRoute = ApiPublicKeroHealthRouteImport.update({
+  id: '/api/public/kero-health',
+  path: '/api/public/kero-health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -66,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/chat': typeof AuthenticatedChatRouteWithChildren
   '/api/chat': typeof ApiChatRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
+  '/api/public/kero-health': typeof ApiPublicKeroHealthRoute
   '/chat/': typeof AuthenticatedChatIndexRoute
 }
 export interface FileRoutesByTo {
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AuthenticatedAdminRoute
   '/api/chat': typeof ApiChatRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
+  '/api/public/kero-health': typeof ApiPublicKeroHealthRoute
   '/chat': typeof AuthenticatedChatIndexRoute
 }
 export interface FileRoutesById {
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   '/_authenticated/chat': typeof AuthenticatedChatRouteWithChildren
   '/api/chat': typeof ApiChatRoute
   '/_authenticated/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
+  '/api/public/kero-health': typeof ApiPublicKeroHealthRoute
   '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
 }
 export interface FileRouteTypes {
@@ -96,9 +105,17 @@ export interface FileRouteTypes {
     | '/chat'
     | '/api/chat'
     | '/chat/$conversationId'
+    | '/api/public/kero-health'
     | '/chat/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/admin' | '/api/chat' | '/chat/$conversationId' | '/chat'
+  to:
+    | '/'
+    | '/auth'
+    | '/admin'
+    | '/api/chat'
+    | '/chat/$conversationId'
+    | '/api/public/kero-health'
+    | '/chat'
   id:
     | '__root__'
     | '/'
@@ -108,6 +125,7 @@ export interface FileRouteTypes {
     | '/_authenticated/chat'
     | '/api/chat'
     | '/_authenticated/chat/$conversationId'
+    | '/api/public/kero-health'
     | '/_authenticated/chat/'
   fileRoutesById: FileRoutesById
 }
@@ -116,6 +134,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiPublicKeroHealthRoute: typeof ApiPublicKeroHealthRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -176,6 +195,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChatConversationIdRouteImport
       parentRoute: typeof AuthenticatedChatRoute
     }
+    '/api/public/kero-health': {
+      id: '/api/public/kero-health'
+      path: '/api/public/kero-health'
+      fullPath: '/api/public/kero-health'
+      preLoaderRoute: typeof ApiPublicKeroHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -210,6 +236,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiPublicKeroHealthRoute: ApiPublicKeroHealthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
