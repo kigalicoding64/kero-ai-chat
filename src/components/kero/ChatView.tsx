@@ -74,21 +74,42 @@ export function ChatView({ conversationId, initialMessages, title, onConversatio
       let text = "";
 
       try {
-        const { data } = await supabase.auth.getSession();
-        const token = data.session?.access_token;
+        const body = JSON.stringify({
+          conversationId,
+          messages: history
+            .filter((m) => !m.isError && m.content.trim().length > 0)
+            .map((m) => ({ role: m.role, content: m.content })),
+        });
+
+        const post = async (token: string) =>
+          fetch("/api/chat", {
+            method: "POST",
+            headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+            signal: controller.signal,
+            body,
+          });
+
+        const currentToken = async () => {
+          const { data } = await supabase.auth.getSession();
+          return data.session?.access_token;
+        };
+
+        let token = await currentToken();
+        if (!token) {
+          const refreshed = await supabase.auth.refreshSession();
+          token = refreshed.data.session?.access_token;
+        }
         if (!token) throw new Error("Your session expired. Please sign in again.");
 
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-          signal: controller.signal,
-          body: JSON.stringify({
-            conversationId,
-            messages: history
-              .filter((m) => !m.isError && m.content.trim().length > 0)
-              .map((m) => ({ role: m.role, content: m.content })),
-          }),
-        });
+        let res = await post(token);
+
+        // An expired access token is the most common silent failure: refresh once and retry.
+        if (res.status === 401) {
+          const refreshed = await supabase.auth.refreshSession();
+          const retryToken = refreshed.data.session?.access_token;
+          if (!retryToken) throw new Error("Your session expired. Please sign in again.");
+          res = await post(retryToken);
+        }
 
         if (!res.ok || !res.body) {
           const payload = (await res.json().catch(() => null)) as { message?: string } | null;
