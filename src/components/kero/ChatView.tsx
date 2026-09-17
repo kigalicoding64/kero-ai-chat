@@ -72,23 +72,45 @@ export function ChatView({ conversationId, initialMessages, title, onConversatio
       const assistantId = `stream-${Date.now()}`;
       setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "" }]);
       let text = "";
+      let stoppedByUser = false;
 
       try {
-        const { data } = await supabase.auth.getSession();
-        const token = data.session?.access_token;
+        const body = JSON.stringify({
+          conversationId,
+          messages: history
+            .filter((m) => !m.isError && m.content.trim().length > 0)
+            .map((m) => ({ role: m.role, content: m.content })),
+        });
+
+        const post = async (token: string) =>
+          fetch("/api/chat", {
+            method: "POST",
+            headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+            signal: controller.signal,
+            body,
+          });
+
+        const currentToken = async () => {
+          const { data } = await supabase.auth.getSession();
+          return data.session?.access_token;
+        };
+
+        let token = await currentToken();
+        if (!token) {
+          const refreshed = await supabase.auth.refreshSession();
+          token = refreshed.data.session?.access_token;
+        }
         if (!token) throw new Error("Your session expired. Please sign in again.");
 
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-          signal: controller.signal,
-          body: JSON.stringify({
-            conversationId,
-            messages: history
-              .filter((m) => !m.isError && m.content.trim().length > 0)
-              .map((m) => ({ role: m.role, content: m.content })),
-          }),
-        });
+        let res = await post(token);
+
+        // An expired access token is the most common silent failure: refresh once and retry.
+        if (res.status === 401) {
+          const refreshed = await supabase.auth.refreshSession();
+          const retryToken = refreshed.data.session?.access_token;
+          if (!retryToken) throw new Error("Your session expired. Please sign in again.");
+          res = await post(retryToken);
+        }
 
         if (!res.ok || !res.body) {
           const payload = (await res.json().catch(() => null)) as { message?: string } | null;
@@ -132,6 +154,7 @@ export function ChatView({ conversationId, initialMessages, title, onConversatio
         }
       } catch (error) {
         const aborted = error instanceof DOMException && error.name === "AbortError";
+        stoppedByUser = aborted;
         if (!aborted) {
           const message = error instanceof Error ? error.message : "Something went wrong.";
           toast.error(message);
@@ -161,8 +184,21 @@ export function ChatView({ conversationId, initialMessages, title, onConversatio
         } catch {
           toast.error("The reply could not be saved.");
         }
-      } else {
+      } else if (stoppedByUser) {
         setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+      } else {
+        // The stream ended without any text: never leave a blank reply on screen.
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? {
+                  ...m,
+                  content: "Kero did not send an answer this time. Please tap Regenerate.",
+                  isError: true,
+                }
+              : m,
+          ),
+        );
       }
     },
     [conversationId, onConversationChanged, save],
