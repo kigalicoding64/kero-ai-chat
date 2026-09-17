@@ -153,6 +153,7 @@ export function ChatView({ conversationId, initialMessages, title, onConversatio
         }
       } catch (error) {
         const aborted = error instanceof DOMException && error.name === "AbortError";
+        stoppedByUser = aborted;
         if (!aborted) {
           const message = error instanceof Error ? error.message : "Something went wrong.";
           toast.error(message);
@@ -182,8 +183,21 @@ export function ChatView({ conversationId, initialMessages, title, onConversatio
         } catch {
           toast.error("The reply could not be saved.");
         }
-      } else {
+      } else if (stoppedByUser) {
         setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+      } else {
+        // The stream ended without any text: never leave a blank reply on screen.
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? {
+                  ...m,
+                  content: "Kero did not send an answer this time. Please tap Regenerate.",
+                  isError: true,
+                }
+              : m,
+          ),
+        );
       }
     },
     [conversationId, onConversationChanged, save],
