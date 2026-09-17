@@ -49,16 +49,31 @@ export const Route = createFileRoute("/api/chat")({
           );
         }
 
-        let upstream: Response;
-        try {
-          const options: { messages: ReturnType<typeof buildMessages>; model?: string; signal?: AbortSignal } = {
-            messages: buildMessages(parsed.messages),
-            signal: request.signal,
-          };
-          if (parsed.model) options.model = parsed.model;
-          upstream = await provider.streamChat(options);
-        } catch (error) {
-          console.error("[chat] upstream request failed", error);
+        const { configuredModel, FALLBACK_NVIDIA_MODELS } = await import(
+          "@/lib/ai/providers/nvidia.server"
+        );
+        // A deployment can be pinned (via NVIDIA_MODEL) to a model NVIDIA has
+        // retired — that answers 404/410. Try the known-good models in order.
+        const candidates = [
+          ...(parsed.model ? [parsed.model] : [configuredModel()]),
+          ...FALLBACK_NVIDIA_MODELS,
+        ].filter((model, index, all) => all.indexOf(model) === index);
+
+        const messages = buildMessages(parsed.messages);
+        let upstream: Response | undefined;
+        for (const model of candidates) {
+          try {
+            upstream = await provider.streamChat({ messages, model, signal: request.signal });
+          } catch (error) {
+            console.error("[chat] upstream request failed", error);
+            return errorResponse(502, "upstream_unreachable", "Could not reach the NVIDIA service.");
+          }
+          if (upstream.ok && upstream.body) break;
+          if (upstream.status !== 404 && upstream.status !== 410) break;
+          console.error(`[chat] model unavailable (${upstream.status}): ${model}`);
+          await upstream.text().catch(() => "");
+        }
+        if (!upstream) {
           return errorResponse(502, "upstream_unreachable", "Could not reach the NVIDIA service.");
         }
 
@@ -70,7 +85,9 @@ export const Route = createFileRoute("/api/chat")({
               ? "The NVIDIA API key was rejected. Check the key and try again."
               : upstream.status === 429
                 ? "NVIDIA is rate limiting requests. Please retry in a moment."
-                : `NVIDIA returned an error (${upstream.status}).`;
+                : upstream.status === 404 || upstream.status === 410
+                  ? "The configured AI model is no longer available from NVIDIA. Update the model setting and try again."
+                  : `NVIDIA returned an error (${upstream.status}).`;
           return errorResponse(upstream.status === 429 ? 429 : 502, "upstream_error", message);
         }
 
