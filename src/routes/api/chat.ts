@@ -85,7 +85,9 @@ export const Route = createFileRoute("/api/chat")({
               ? "The NVIDIA API key was rejected. Check the key and try again."
               : upstream.status === 429
                 ? "NVIDIA is rate limiting requests. Please retry in a moment."
-                : `NVIDIA returned an error (${upstream.status}).`;
+                : upstream.status === 404 || upstream.status === 410
+                  ? "The configured AI model is no longer available from NVIDIA. Update the model setting and try again."
+                  : `NVIDIA returned an error (${upstream.status}).`;
           return errorResponse(upstream.status === 429 ? 429 : 502, "upstream_error", message);
         }
 
