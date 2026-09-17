@@ -72,6 +72,7 @@ export function ChatView({ conversationId, initialMessages, title, onConversatio
       const assistantId = `stream-${Date.now()}`;
       setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "" }]);
       let text = "";
+      let stoppedByUser = false;
 
       try {
         const body = JSON.stringify({
