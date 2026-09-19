@@ -103,7 +103,7 @@ export const Route = createFileRoute("/api/public/whatsapp/webhook")({
   },
 });
 
-type Admin = Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"];
+type Admin = typeof import("@/integrations/supabase/client.server")["supabaseAdmin"];
 
 async function handleStatus(admin: Admin, value: WaValue) {
   for (const status of value.statuses ?? []) {
