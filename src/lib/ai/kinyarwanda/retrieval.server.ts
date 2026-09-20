@@ -27,9 +27,15 @@ const RECORDS: KnowledgeRecord[] = [
   },
   {
     id: "rw-social-checkins",
-    text: "Natural social check-ins: 'umeze ute?'/'umeze gute?' means how are you; 'mumeze mute?' addresses more than one person respectfully; 'waraye?' asks how someone slept or how their night was; 'wari he?' asks where someone was; 'none se?' means so/then what about it; answer the social meaning directly instead of replying with a generic service question.",
-    terms: ["umeze ute", "umeze gute", "mumeze mute", "waraye", "wari he", "none se", "wowe se"],
+    text: "Natural social check-ins: 'umeze ute?'/'umeze gute?' means how are you; 'mumeze mute?' addresses more than one person respectfully; 'waraye?' asks how someone slept or how their night was; 'waryamye?' is a friendly way to ask how someone slept; 'wari he?' asks where someone was; 'none se?' means so/then what about it; answer the social meaning directly instead of replying with a generic service question.",
+    terms: ["umeze ute", "umeze gute", "mumeze mute", "waraye", "waryamye", "wari he", "none se", "wowe se"],
     tags: ["whatsapp", "casual", "social", "greeting"],
+  },
+  {
+    id: "rw-everyday-phrases",
+    text: "Use everyday Kinyarwanda phrases naturally: 'Mwaramutse' for good morning, 'Mwiriwe' for good afternoon/evening, 'Amakuru?' for how are you, 'Ni meza' for I am fine, 'Sawa' for okay, 'Murakoze' for thank you, 'Nta kibazo' for no problem, 'Komera' for take care/be strong, 'Umeze ute?' for how are you, and 'Byiza' for good/nice.",
+    terms: ["mwaramutse", "mwiriwe", "amakuru", "ni meza", "sawa", "murakoze", "nta kibazo", "komera", "byiza", "byiza"],
+    tags: ["daily", "everyday", "greeting", "politeness"],
   },
   {
     id: "rw-short-turns",
@@ -45,9 +51,15 @@ const RECORDS: KnowledgeRecord[] = [
   },
   {
     id: "rw-informal-slang",
-    text: "Informal expressions are context-sensitive. 'sha' and 'bro' are familiar forms of address; 'sawa' means okay; 'gato' can mean a little or briefly; 'birakaze' may mean difficult, intense, serious, or impressive depending on context; 'birakomeye' may mean difficult or serious; 'hano', 'gusa', 'rwose', and 'se' help shape conversational emphasis. Understand them without forcing slang into every reply.",
+    text: "Informal expressions are context-sensitive. 'sha' and 'bro' are familiar forms of address; 'sawa' means okay; 'gato' can mean a little or briefly; 'birakaze' may mean difficult, intense, serious, or impressive depending on context; 'birakomeye' may mean difficult or serious; 'gusa', 'rwose', and 'se' help shape conversational emphasis. Understand them without forcing slang into every reply.",
     terms: ["sha", "bro", "sawa", "gato", "birakaze", "birakomeye", "gusa", "rwose", "se"],
     tags: ["slang", "informal", "casual", "context"],
+  },
+  {
+    id: "rw-frequent-action-words",
+    text: "Common action and response words in natural Kinyarwanda include 'ndaje' (I came/I am coming), 'nagiye' (I went), 'dushake' (we want), 'turabikora' (we will do it), 'reka' (let's/let me), 'genda' (go), 'kora' (do/make), 'tugende' (let's go), 'tujye' (let's go), 'twabikora' (we will do it), and 'tuzakomeza' (we will continue).", 
+    terms: ["ndaje", "nagiye", "dushake", "turabikora", "reka", "genda", "kora", "tugende", "tujye", "twabikora", "tuzakomeza"],
+    tags: ["action", "verbs", "conversation"],
   },
   {
     id: "rw-disourse-natural",
@@ -113,8 +125,9 @@ export function retrieveKinyarwandaContext(history: ConversationTurn[], limit = 
 
 export function detectConversationSignals(history: ConversationTurn[]) {
   const text = normalize(history.slice(-6).map((turn) => turn.content).join(" "));
-  const kinyarwanda = /\b(muraho|amakuru|umeze|mumeze|waraye|wari he|noneho|none se|ndashaka|nshaka|mfasha|mbwira|sawa|sha|wowe|yego|oya|ejo|ubu|ndaza|tuzakomeza|rwose|gusa|birakaze|birakomeye)\b/.test(text);
-  const casual = /\b(sha|bro|sawa|bite|hey|lol|haha|gusa|rwose|none se)\b|[😂🤣😊😅😘❤️]/u.test(text);
+  const kinyarwanda = /\b(muraho|amakuru|umeze|mumeze|waraye|waryamye|wari he|noneho|none se|ndashaka|nshaka|mfasha|mbwira|sawa|sha|wowe|yego|oya|ejo|ubu|ndaza|tuzakomeza|rwose|gusa|birakaze|birakomeye|mwaramutse|mwiriwe|ndaje|komera|murakoze)\b/.test(text);
+  const casual = /\b(sha|bro|sawa|bite|hey|lol|haha|gusa|rwose|none se|mwaramutse|mwiriwe)\b|[😂🤣😊😅😘❤️]/u.test(text);
   const business = /\b(manager|business|customer|client|meeting|professional|ikigo|umukiriya|serivisi|partnership|plan)\b/.test(text);
   return { kinyarwanda, casual, business };
 }
+
