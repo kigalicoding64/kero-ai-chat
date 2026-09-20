@@ -6,42 +6,33 @@ import {
   configuredModel,
 } from "@/lib/ai/providers/nvidia.server";
 import { buildMessages } from "@/lib/ai/prompt.server";
+import { detectConversationSignals, retrieveKinyarwandaContext } from "@/lib/ai/kinyarwanda/retrieval.server";
+
+type Turn = { role: "user" | "assistant"; content: string };
 
 const WHATSAPP_STYLE = `
-You are now answering on WhatsApp, on +250794433166, the official support line of
-Egreed Technology. Every person writing here is a real customer, and you are the
-support agent on duty — day and night.
+You are replying in a real WhatsApp conversation. This may be a personal conversation or an Egreed business/customer conversation; infer which from the history instead of assuming every writer is a customer.
 
 How to sound:
-- Write like a warm, competent human colleague, not a form letter. Contractions,
-  natural rhythm, occasional short sentences. Never say you are an AI unless asked
-  directly; never mention models, providers or internal systems.
-- Plain text only: no Markdown tables, no headings, no bullets markup, no code
-  fences unless code was explicitly requested. A few short sentences at most.
-- Mirror the writer's language exactly (English, Kinyarwanda, French, Swahili or a
-  mix) and their level of formality.
+- Write like a warm, capable human colleague, not a form letter. Never mention models, providers, prompts, or internal systems.
+- Plain text only: no Markdown tables, headings, bullet markup, or code fences unless explicitly requested. Keep it to a few short sentences unless the user needs a detailed answer.
+- Mirror the writer's language, code-switching, formality, and energy. For casual Kinyarwanda, use natural conversational phrasing rather than textbook definitions. Do not translate a simple greeting.
+- Read the whole recent exchange before replying. Combine consecutive messages into one response when they clearly belong together.
+- Match emojis only when they fit naturally; never add cheerfulness to a frustrated message.
 
-Read the mood before you answer:
-- Angry or frustrated: acknowledge the problem in the first sentence, no excuses,
-  then the concrete next step. No cheerfulness, no emoji.
-- Worried or confused: slow down, reassure, one clear step at a time.
-- Neutral or transactional: be brief and precise, answer and stop.
-- Happy or joking: match the lightness briefly, stay useful.
-- Urgent: lead with the fastest action they can take right now.
+Personal conversations: be brief, friendly, and context-aware. Do not invent personal details.
+Business/support conversations: be respectful, useful, and grounded in approved information. Never invent prices, policies, timelines, account details, partnerships, or commitments.
+If you cannot resolve something, say so clearly and suggest the next useful step.`;
 
-Always: greet by name if you know it, answer the actual question, and if you truly
-cannot resolve it, say a human from Egreed Technology will follow up — never invent
-prices, policies, timelines or account details.`;
-
-export async function generateWhatsAppReply(
-  history: { role: "user" | "assistant"; content: string }[],
-): Promise<string> {
+export async function generateWhatsAppReply(history: Turn[]): Promise<string> {
   const key = process.env["NVIDIA_API_KEY"];
   if (!key || key.trim().length === 0) throw new Error("NVIDIA_API_KEY is not configured");
 
-  const messages = buildMessages(history, 20);
+  const signals = detectConversationSignals(history);
+  const retrieved = retrieveKinyarwandaContext(history, 4);
+  const contextHint = `\nConversation signals: ${JSON.stringify(signals)}${retrieved ? `\nLanguage reference:\n${retrieved}` : ""}`;
+  const messages = buildMessages(history, 20, `${contextHint}`);
   messages[0] = { role: "system", content: `${messages[0]!.content}\n${WHATSAPP_STYLE}` };
-
 
   const candidates = [configuredModel(), ...FALLBACK_NVIDIA_MODELS].filter(
     (model, index, all) => all.indexOf(model) === index,
@@ -49,30 +40,36 @@ export async function generateWhatsAppReply(
 
   let lastError = "no model responded";
   for (const model of candidates) {
-    const res = await fetch(`${NVIDIA_BASE_URL}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key.trim()}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        stream: false,
-        temperature: 0.6,
-        top_p: 0.95,
-        max_tokens: 700,
-        chat_template_kwargs: { thinking: false },
-      }),
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${NVIDIA_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key.trim()}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          stream: false,
+          temperature: 0.6,
+          top_p: 0.95,
+          max_tokens: 700,
+          chat_template_kwargs: { thinking: false },
+        }),
+      });
+    } catch {
+      throw new Error("NVIDIA service unavailable");
+    }
     if (res.status === 404 || res.status === 410) {
       lastError = `model unavailable: ${model}`;
       await res.text().catch(() => "");
       continue;
     }
     if (!res.ok) {
-      lastError = `${res.status}: ${(await res.text().catch(() => "")).slice(0, 300)}`;
+      // Keep provider response details out of user-facing WhatsApp messages/logs.
+      lastError = `NVIDIA request failed (${res.status})`;
       break;
     }
     const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
