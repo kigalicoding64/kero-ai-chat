@@ -6,6 +6,7 @@ import {
   LogOut,
   MessageSquarePlus,
   Search,
+  MessageCircle,
   Settings2,
   Trash2,
 } from "lucide-react";
