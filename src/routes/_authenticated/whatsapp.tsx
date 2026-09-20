@@ -106,8 +106,10 @@ function WhatsAppPage() {
         <div>
           <h1 className="font-display text-xl font-semibold">Kero on WhatsApp</h1>
           <p className="text-sm text-muted-foreground">
-            Link your number and Kero answers your WhatsApp messages, even while you sleep.
+            Add your number and Kero answers your WhatsApp messages on +250 794 433 166, the
+            official Egreed Technology support line — even while you sleep.
           </p>
+
         </div>
       </div>
 
@@ -144,29 +146,28 @@ function WhatsAppPage() {
                 <p className="text-sm text-muted-foreground">
                   {number.verified ? (
                     <span className="inline-flex items-center gap-1 text-primary">
-                      <Check className="size-3.5" /> Verified
+                      <Check className="size-3.5" /> Confirmed
                     </span>
                   ) : (
-                    "Waiting for verification"
+                    "Active — Kero already replies. Send the code to confirm it's yours."
                   )}
                 </p>
               </div>
               <div className="flex items-center gap-3">
-                {number.verified && (
-                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                    Auto-reply
-                    <Switch
-                      checked={number.auto_reply}
-                      onCheckedChange={(checked) =>
-                        toggle.mutate({ id: number.id, autoReply: checked })
-                      }
-                    />
-                  </label>
-                )}
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  Auto-reply
+                  <Switch
+                    checked={number.auto_reply}
+                    onCheckedChange={(checked) =>
+                      toggle.mutate({ id: number.id, autoReply: checked })
+                    }
+                  />
+                </label>
                 <Button variant="ghost" size="icon" onClick={() => drop.mutate(number.id)}>
                   <Trash2 className="size-4" />
                 </Button>
               </div>
+
             </div>
 
             {!number.verified && number.verification_code && (

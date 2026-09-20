@@ -132,6 +132,11 @@ async function handleStatus(admin: Admin, value: WaValue) {
   }
 }
 
+/** Natural pause before answering, so a person can finish typing their thought. */
+const REPLY_DELAY_MS = 2000;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function handleInbound(admin: Admin, value: WaValue) {
   const { sendWhatsAppText } = await import("@/lib/whatsapp/gateway.server");
   const { generateWhatsAppReply } = await import("@/lib/whatsapp/reply.server");
@@ -157,10 +162,8 @@ async function handleInbound(admin: Admin, value: WaValue) {
       .eq("phone_e164", from)
       .maybeSingle();
 
-    if (!number) continue; // unknown sender: stored in the inbox, nothing else to do
-
-    // --- Verification step: the owner sends the code from their own WhatsApp ---
-    if (!number.verified) {
+    // --- Ownership confirmation: the owner may send the 6-digit code at any time ---
+    if (number && !number.verified) {
       const match = text.match(/(\d{6})/);
       const fresh =
         number.code_expires_at !== null && new Date(number.code_expires_at).getTime() > Date.now();
@@ -176,13 +179,22 @@ async function handleInbound(admin: Admin, value: WaValue) {
           .eq("id", number.id);
         await sendWhatsAppText(
           from,
-          "Your number is now linked to Kero. Message me any time — I answer day and night.",
+          "Your number is now confirmed. I'm here any time — day or night.",
         );
-      } else {
-        await sendWhatsAppText(
-          from,
-          "This number is not verified yet. Send the 6-digit code shown in Kero to finish linking it.",
-        );
+        continue;
+      }
+    }
+
+    // Unknown sender writing to the official support line: still answer, but there is
+    // no linked number to file the thread under, so reply without storing a thread.
+    if (!number) {
+      if (!text) continue;
+      await sleep(REPLY_DELAY_MS);
+      try {
+        const reply = await generateWhatsAppReply([{ role: "user", content: text }]);
+        await sendWhatsAppText(from, reply);
+      } catch (error) {
+        console.error("[whatsapp] guest reply failed", error);
       }
       continue;
     }
@@ -210,17 +222,21 @@ async function handleInbound(admin: Admin, value: WaValue) {
       thread = created;
     }
 
-    const { error: insertError } = await admin.from("whatsapp_messages").insert({
-      conversation_id: thread!.id,
-      user_id: number.user_id,
-      direction: "inbound",
-      wa_message_id: waId,
-      content: text || `[${message.type ?? "unsupported"} message]`,
-      status: "received",
-      provider_timestamp: message.timestamp
-        ? new Date(Number(message.timestamp) * 1000).toISOString()
-        : null,
-    });
+    const { data: inboundRow, error: insertError } = await admin
+      .from("whatsapp_messages")
+      .insert({
+        conversation_id: thread!.id,
+        user_id: number.user_id,
+        direction: "inbound",
+        wa_message_id: waId,
+        content: text || `[${message.type ?? "unsupported"} message]`,
+        status: "received",
+        provider_timestamp: message.timestamp
+          ? new Date(Number(message.timestamp) * 1000).toISOString()
+          : null,
+      })
+      .select("id, created_at")
+      .single();
     if (insertError) throw new Error(insertError.message);
 
     await admin
@@ -234,6 +250,17 @@ async function handleInbound(admin: Admin, value: WaValue) {
       continue;
     }
 
+    // Wait a moment: if they keep typing, the newer message answers for both.
+    await sleep(REPLY_DELAY_MS);
+    const { data: newer } = await admin
+      .from("whatsapp_messages")
+      .select("id")
+      .eq("conversation_id", thread!.id)
+      .eq("direction", "inbound")
+      .gt("created_at", inboundRow!.created_at)
+      .limit(1);
+    if ((newer ?? []).length > 0) continue;
+
     const { data: history } = await admin
       .from("whatsapp_messages")
       .select("direction, content")
@@ -241,19 +268,17 @@ async function handleInbound(admin: Admin, value: WaValue) {
       .order("created_at", { ascending: false })
       .limit(20);
 
-    const turns = (history ?? [])
-      .reverse()
-      .map((row) => ({
-        role: row.direction === "inbound" ? ("user" as const) : ("assistant" as const),
-        content: row.content,
-      }));
+    const turns = (history ?? []).reverse().map((row) => ({
+      role: row.direction === "inbound" ? ("user" as const) : ("assistant" as const),
+      content: row.content,
+    }));
 
     let reply: string;
     try {
       reply = await generateWhatsAppReply(turns);
     } catch (error) {
       console.error("[whatsapp] reply generation failed", error);
-      reply = "Kero is temporarily unavailable. Please send your message again shortly.";
+      reply = "Sorry, I couldn't get to that just now. Please send your message again in a moment.";
     }
 
     const sent = await sendWhatsAppText(from, reply);
@@ -273,3 +298,4 @@ async function handleInbound(admin: Admin, value: WaValue) {
       .eq("id", thread!.id);
   }
 }
+
