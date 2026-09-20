@@ -148,6 +148,12 @@ function ChatLayout() {
         <div className="space-y-1 border-t border-sidebar-border px-3 py-3">
           <ConnectionBadge />
           <Link
+            to="/whatsapp"
+            className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-muted-foreground transition hover:bg-sidebar-accent hover:text-foreground"
+          >
+            <MessageCircle className="size-4" /> Kero on WhatsApp
+          </Link>
+          <Link
             to="/admin"
             className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-muted-foreground transition hover:bg-sidebar-accent hover:text-foreground"
           >
