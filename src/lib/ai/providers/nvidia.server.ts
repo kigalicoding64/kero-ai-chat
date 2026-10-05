@@ -10,8 +10,8 @@ export const FALLBACK_NVIDIA_MODELS = [
   "nvidia/nemotron-nano-3-30b-a3b",
 ];
 
-function readKey(): string | undefined {
-  const key = process.env["NVIDIA_API_KEY"];
+function readKey(override?: string): string | undefined {
+  const key = override ?? process.env["NVIDIA_API_KEY"];
   return key && key.trim().length > 0 ? key.trim() : undefined;
 }
 
@@ -20,14 +20,14 @@ export function configuredModel(): string {
   return model && model.trim().length > 0 ? model.trim() : DEFAULT_NVIDIA_MODEL;
 }
 
-function requireKey(): string {
-  const key = readKey();
+function requireKey(override?: string): string {
+  const key = readKey(override);
   if (!key) throw new MissingCredentialsError("NVIDIA_API_KEY");
   return key;
 }
 
-async function nvidiaFetch(path: string, init: RequestInit = {}) {
-  const key = requireKey();
+async function nvidiaFetch(path: string, init: RequestInit = {}, override?: string) {
+  const key = requireKey(override);
   return fetch(`${NVIDIA_BASE_URL}${path}`, {
     ...init,
     headers: {
@@ -39,7 +39,8 @@ async function nvidiaFetch(path: string, init: RequestInit = {}) {
   });
 }
 
-export const nvidiaProvider: AiProvider = {
+export function createNvidiaProvider(keyOverride?: string): AiProvider {
+return {
   id: "nvidia",
   label: "NVIDIA NIM",
 
@@ -48,7 +49,7 @@ export const nvidiaProvider: AiProvider = {
       id: "nvidia",
       label: "NVIDIA NIM",
       model: configuredModel(),
-      configured: Boolean(readKey()),
+      configured: Boolean(readKey(keyOverride)),
     };
   },
 
@@ -65,12 +66,12 @@ export const nvidiaProvider: AiProvider = {
     };
     const init: RequestInit = { method: "POST", body: JSON.stringify(body) };
     if (signal) init.signal = signal;
-    return nvidiaFetch("/chat/completions", init);
+    return nvidiaFetch("/chat/completions", init, keyOverride);
   },
 
-  async listModels() {
-    const res = await nvidiaFetch("/models");
-    if (!res.ok) throw new Error(`NVIDIA /models responded ${res.status}: ${await res.text()}`);
+  async listModels(signal) {
+    const res = await nvidiaFetch("/models", { signal }, keyOverride);
+    if (!res.ok) throw new Error(`NVIDIA connection failed (${res.status}). Check credentials and model access.`);
     const json = (await res.json()) as { data?: { id?: string }[] };
     return (json.data ?? []).map((m) => m.id).filter((id): id is string => Boolean(id));
   },
@@ -87,9 +88,9 @@ export const nvidiaProvider: AiProvider = {
         max_tokens: 64,
         chat_template_kwargs: { thinking: false },
       }),
-    });
+    }, keyOverride);
     if (!res.ok) {
-      throw new Error(`NVIDIA completion responded ${res.status}: ${(await res.text()).slice(0, 400)}`);
+      throw new Error(`NVIDIA completion failed (${res.status}). Check credentials, model access, or quota.`);
     }
     const json = (await res.json()) as {
       choices?: { message?: { content?: string } }[];
@@ -97,3 +98,6 @@ export const nvidiaProvider: AiProvider = {
     return { text: json.choices?.[0]?.message?.content ?? "", model };
   },
 };
+}
+
+export const nvidiaProvider = createNvidiaProvider();

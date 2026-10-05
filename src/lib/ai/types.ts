@@ -48,7 +48,7 @@ export interface AiProvider {
     signal?: AbortSignal;
   }): Promise<Response>;
   /** List model ids available to the current credentials. */
-  listModels(): Promise<string[]>;
+  listModels(signal?: AbortSignal): Promise<string[]>;
   /** Small non-streaming completion, used by the diagnostics panel. */
   testCompletion(prompt: string): Promise<{ text: string; model: string }>;
 }
