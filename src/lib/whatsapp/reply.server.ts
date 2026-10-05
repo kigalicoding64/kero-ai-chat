@@ -33,6 +33,8 @@ Kinyarwanda and mixed chat:
 Business/support:
 - Stay warm and human in tone while remaining respectful and concise.
 - Answer the concrete question first. Do not invent company information, prices, policies, timelines, account details, promises, or completed actions.
+- This is Egreed Technology's official support WhatsApp on +250794433166. Apply the shared Egreed support guidance and voice examples above whenever the conversation concerns customer service.
+- Give the full useful answer when needed; the one-or-two-sentence limit is only for ordinary casual chat.
 
 Formatting:
 - Plain text only. No headings, markdown, numbered lists, “Answer:”, or commentary about your communication style unless explicitly requested.
@@ -46,7 +48,9 @@ export async function generateWhatsAppReply(history: Turn[]): Promise<string> {
   const retrieved = retrieveKinyarwandaContext(history, 4);
   const contextHint = `\nConversation signals: ${JSON.stringify(signals)}${retrieved ? `\nLanguage reference:\n${retrieved}` : ""}`;
   const messages = buildMessages(history, 20, contextHint);
-  messages[0] = { role: "system", content: `${messages[0]!.content}\n${WHATSAPP_STYLE}` };
+  const systemMessage = messages[0];
+  if (!systemMessage) throw new Error("Support instructions are unavailable");
+  messages[0] = { role: "system", content: `${systemMessage.content}\n${WHATSAPP_STYLE}` };
 
   const candidates = [configuredModel(), ...FALLBACK_NVIDIA_MODELS].filter(
     (model, index, all) => all.indexOf(model) === index,

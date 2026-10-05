@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Keep official customer support tone and illustrative exchanges in a shared server-only AI guidance module used by the web and WhatsApp prompts, so channels stay consistent without exposing hidden instructions.
