@@ -98,6 +98,36 @@ export type Database = {
         }
         Relationships: []
       }
+      kero_provider_settings: {
+        Row: {
+          active_provider: string
+          gemini_key_encrypted: string | null
+          gemini_model: string | null
+          id: string
+          nvidia_key_encrypted: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          active_provider?: string
+          gemini_key_encrypted?: string | null
+          gemini_model?: string | null
+          id: string
+          nvidia_key_encrypted?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          active_provider?: string
+          gemini_key_encrypted?: string | null
+          gemini_model?: string | null
+          id?: string
+          nvidia_key_encrypted?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string
