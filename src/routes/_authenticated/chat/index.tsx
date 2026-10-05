@@ -9,6 +9,16 @@ import { Button } from "@/components/ui/button";
 import { createConversation, listConversations } from "@/lib/conversations.functions";
 
 export const Route = createFileRoute("/_authenticated/chat/")({
+  head: () => ({
+    meta: [
+      { title: "Open your Kero workspace — Egreed Technology" },
+      { name: "description", content: "Open your saved Kero conversations and continue chatting with Egreed Technology's assistant." },
+      { property: "og:title", content: "Open your Kero workspace — Egreed Technology" },
+      { property: "og:description", content: "Continue your saved conversations with Kero." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: ChatIndex,
 });
 

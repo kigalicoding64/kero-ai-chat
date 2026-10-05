@@ -7,6 +7,16 @@ import { ChatView, type UiMessage } from "@/components/kero/ChatView";
 import { getMessages, listConversations } from "@/lib/conversations.functions";
 
 export const Route = createFileRoute("/_authenticated/chat/$conversationId")({
+  head: () => ({
+    meta: [
+      { title: "Your Kero conversation — Egreed Technology" },
+      { name: "description", content: "Chat privately with Kero, Egreed Technology's multilingual assistant." },
+      { property: "og:title", content: "Your Kero conversation — Egreed Technology" },
+      { property: "og:description", content: "A private multilingual conversation with Egreed Technology's Kero assistant." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: ConversationPage,
 });
 
