@@ -43,8 +43,8 @@ function AdminPage() {
   const access = useServerFn(getAiAdminAccess);
   const adminAccess = useQuery({queryKey:['ai-admin-access'],queryFn:() => access()});
 
-  const providerStatus = useQuery({ queryKey: ["provider-status"], queryFn: () => status() });
-  const auditLogs = useQuery({ queryKey: ["audit-logs"], queryFn: () => logs() });
+  const providerStatus = useQuery({ queryKey: ["provider-status"], queryFn: () => status(), enabled: adminAccess.data === true });
+  const auditLogs = useQuery({ queryKey: ["audit-logs"], queryFn: () => logs(), enabled: adminAccess.data === true });
   const runTest = useMutation({
     mutationFn: () => test(),
     onSuccess: () => auditLogs.refetch(),

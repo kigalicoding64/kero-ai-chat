@@ -27,7 +27,9 @@ export function geminiBody(messages: ChatMessage[]) {
 export function createGeminiProvider(key?: string, model = DEFAULT_GEMINI_MODEL): AiProvider {
   async function api(path: string, init: RequestInit = {}) {
     if (!key) throw new Error('Gemini is not configured. Ask an administrator to add its API key in settings.');
-    return fetch(`${BASE}/${path}`, { ...init, headers: { 'x-goog-api-key': key, 'content-type': 'application/json' } });
+    const timeout = AbortSignal.timeout(45_000);
+    const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
+    return fetch(`${BASE}/${path}`, { ...init, signal, headers: { 'x-goog-api-key': key, 'content-type': 'application/json' } });
   }
   async function completion(messages: ChatMessage[]) {
     const res = await api(`models/${model}:generateContent`, { method: 'POST', body: JSON.stringify(geminiBody(messages)) });

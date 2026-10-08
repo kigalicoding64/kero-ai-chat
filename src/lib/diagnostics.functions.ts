@@ -38,7 +38,7 @@ export const runConnectionTest = createServerFn({ method: "POST" })
     let models: string[] = [];
     const startList = Date.now();
     try {
-      models = await provider.listModels();
+      models = await provider.listModels(AbortSignal.timeout(12_000));
       checks.push({
         id: "reachability",
         label: `${info.label} endpoint reachable`,

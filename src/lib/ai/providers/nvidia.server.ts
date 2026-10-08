@@ -30,6 +30,7 @@ async function nvidiaFetch(path: string, init: RequestInit = {}, override?: stri
   const key = requireKey(override);
   return fetch(`${NVIDIA_BASE_URL}${path}`, {
     ...init,
+    signal: init.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(45_000)]) : AbortSignal.timeout(45_000),
     headers: {
       Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
