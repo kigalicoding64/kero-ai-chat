@@ -29,7 +29,7 @@ async function decryptKey(value: string) {
 }
 
 export async function readSettings() {
-  const { data, error } = await supabaseAdmin.from('kero_provider_settings').select('*').eq('id', 'global').maybeSingle();
+  const { data, error } = await supabaseAdmin.from('kero_provider_settings').select('*').eq('id', 'global').abortSignal(AbortSignal.timeout(4_000)).maybeSingle();
   if (error) throw new Error('AI settings could not be loaded.');
   return data;
 }
