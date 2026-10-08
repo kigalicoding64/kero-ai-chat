@@ -6,16 +6,18 @@ import type { CheckResult, DiagnosticsReport } from "@/lib/ai/types";
 export const getProviderStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
-    const { getProvider } = await import("@/lib/ai/providers/registry.server");
-    return getProvider().describe();
+    const { getActiveProvider } = await import("@/lib/ai/providers/registry.server");
+    return (await getActiveProvider()).describe();
   });
 
 export const runConnectionTest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<DiagnosticsReport> => {
-    const { getProvider } = await import("@/lib/ai/providers/registry.server");
+    const { data: isAdmin, error: roleError } = await context.supabase.rpc('has_role', {_user_id:context.userId,_role:'admin'});
+    if (roleError || !isAdmin) throw new Error('Only administrators can run connection tests.');
+    const { getActiveProvider } = await import("@/lib/ai/providers/registry.server");
     const { FALLBACK_NVIDIA_MODELS } = await import("@/lib/ai/providers/nvidia.server");
-    const provider = getProvider();
+    const provider = await getActiveProvider();
     const info = provider.describe();
     const checks: CheckResult[] = [];
 
@@ -24,8 +26,8 @@ export const runConnectionTest = createServerFn({ method: "POST" })
       label: "API key configured",
       status: info.configured ? "pass" : "fail",
       detail: info.configured
-        ? "NVIDIA_API_KEY is present in the server environment."
-        : "NVIDIA_API_KEY is missing. Add it as a secret, then republish the app.",
+        ? `${info.label} credentials are configured securely.`
+        : `Add ${info.label} credentials in AI settings.`,
     });
 
     if (!info.configured) {
@@ -39,25 +41,26 @@ export const runConnectionTest = createServerFn({ method: "POST" })
       models = await provider.listModels();
       checks.push({
         id: "reachability",
-        label: "NVIDIA endpoint reachable",
+        label: `${info.label} endpoint reachable`,
         status: "pass",
-        detail: `integrate.api.nvidia.com answered with ${models.length} models.`,
+        detail: `${info.label} answered with ${models.length} models.`,
         durationMs: Date.now() - startList,
       });
     } catch (error) {
       checks.push({
         id: "reachability",
-        label: "NVIDIA endpoint reachable",
+        label: `${info.label} endpoint reachable`,
         status: "fail",
         detail: error instanceof Error ? error.message.slice(0, 300) : "Unknown error",
         durationMs: Date.now() - startList,
       });
+      return {provider:info.id, model:info.model, checks, ok:false};
     }
 
     // 3. Model availability
     if (models.length > 0) {
       const available = models.includes(info.model);
-      const suggestion = FALLBACK_NVIDIA_MODELS.find((m) => models.includes(m));
+      const suggestion = info.id === 'nvidia' ? FALLBACK_NVIDIA_MODELS.find((m) => models.includes(m)) : undefined;
       checks.push({
         id: "model",
         label: `Model available (${info.model})`,
@@ -66,8 +69,9 @@ export const runConnectionTest = createServerFn({ method: "POST" })
           ? "The configured model is listed for this key."
           : suggestion
             ? `Not listed. A working alternative is ${suggestion} — set NVIDIA_MODEL to use it.`
-            : "Not listed for this key. Set NVIDIA_MODEL to a model your key can access.",
+            : "The selected model is not listed for this key. Check model access.",
       });
+      if (!available) return {provider:info.id,model:info.model,checks,ok:false};
     }
 
     // 4. Real completion
