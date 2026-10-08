@@ -4,6 +4,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft, CircleAlert, CircleCheck, CircleDashed, Play, TriangleAlert } from "lucide-react";
 
 import { KeroMark } from "@/components/kero/KeroMark";
+import { AiProviderSettings } from '@/components/kero/AiProviderSettings';
+import { getAiAdminAccess } from '@/lib/provider-settings.functions';
 import { Button } from "@/components/ui/button";
 import { getProviderStatus, listAuditLogs, runConnectionTest } from "@/lib/diagnostics.functions";
 import type { CheckResult } from "@/lib/ai/types";
@@ -14,7 +16,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
       { title: "Kero diagnostics — Egreed Technology" },
       {
         name: "description",
-        content: "Verify Kero's NVIDIA connection: API key, reachability, model availability and a live reply test.",
+        content: "Manage Kero's NVIDIA or Gemini connection and securely validate API keys for chat and WhatsApp.",
       },
       { property: "og:title", content: "Kero diagnostics — Egreed Technology" },
       {
@@ -38,6 +40,8 @@ function AdminPage() {
   const status = useServerFn(getProviderStatus);
   const test = useServerFn(runConnectionTest);
   const logs = useServerFn(listAuditLogs);
+  const access = useServerFn(getAiAdminAccess);
+  const adminAccess = useQuery({queryKey:['ai-admin-access'],queryFn:() => access()});
 
   const providerStatus = useQuery({ queryKey: ["provider-status"], queryFn: () => status() });
   const auditLogs = useQuery({ queryKey: ["audit-logs"], queryFn: () => logs() });
@@ -47,6 +51,9 @@ function AdminPage() {
   });
 
   const configured = providerStatus.data?.configured;
+
+  if (adminAccess.isPending) return <p className="p-6 text-sm text-muted-foreground">Checking administrator access…</p>;
+  if (adminAccess.isError || !adminAccess.data) return <div className="p-6"><Link to="/chat" className="text-primary">Back to chat</Link><p className="mt-4 text-sm text-destructive">{adminAccess.isError ? 'Administrator access could not be checked.' : 'AI settings are available to administrators only.'}</p></div>;
 
   return (
     <div className="min-h-screen bg-background">
@@ -58,22 +65,19 @@ function AdminPage() {
         <div className="mt-6 flex items-center gap-3">
           <KeroMark className="size-11" />
           <div>
-            <h1 className="font-display text-2xl font-semibold">Connection diagnostics</h1>
+            <h1 className="font-display text-2xl font-semibold">AI settings & diagnostics</h1>
             <p className="text-sm text-muted-foreground">
               Provider: {providerStatus.data?.label ?? "…"} · Model: {providerStatus.data?.model ?? "…"}
             </p>
           </div>
         </div>
 
+        <AiProviderSettings />
+
         {configured === false && (
           <div className="mt-6 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm">
             <p className="font-medium text-destructive">Kero is not connected yet</p>
-            <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted-foreground">
-              <li>Create an API key at build.nvidia.com (it starts with “nvapi-”).</li>
-              <li>Save it in this project as the secret named NVIDIA_API_KEY.</li>
-              <li>Optionally set NVIDIA_MODEL to choose a specific model.</li>
-              <li>Publish the app so the live site picks up the key.</li>
-            </ol>
+            <p className="mt-2 text-muted-foreground">Add and validate the selected provider's API key above.</p>
           </div>
         )}
 
@@ -93,7 +97,7 @@ function AdminPage() {
           <div className="mt-5 space-y-3">
             {runTest.isPending && (
               <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                <CircleDashed className="size-4 animate-spin" /> Contacting NVIDIA…
+                <CircleDashed className="size-4 animate-spin" /> Contacting {providerStatus.data?.label ?? 'the selected provider'}…
               </p>
             )}
             {runTest.isError && (
