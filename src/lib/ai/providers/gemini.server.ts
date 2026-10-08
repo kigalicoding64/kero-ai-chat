@@ -27,7 +27,9 @@ export function geminiBody(messages: ChatMessage[]) {
 export function createGeminiProvider(key?: string, model = DEFAULT_GEMINI_MODEL): AiProvider {
   async function api(path: string, init: RequestInit = {}) {
     if (!key) throw new Error('Gemini is not configured. Ask an administrator to add its API key in settings.');
-    return fetch(`${BASE}/${path}`, { ...init, headers: { 'x-goog-api-key': key, 'content-type': 'application/json' } });
+    const timeout = AbortSignal.timeout(45_000);
+    const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
+    return fetch(`${BASE}/${path}`, { ...init, signal, headers: { 'x-goog-api-key': key, 'content-type': 'application/json' } });
   }
   async function completion(messages: ChatMessage[]) {
     const res = await api(`models/${model}:generateContent`, { method: 'POST', body: JSON.stringify(geminiBody(messages)) });
@@ -43,7 +45,7 @@ export function createGeminiProvider(key?: string, model = DEFAULT_GEMINI_MODEL)
       const models: string[] = [];
       let pageToken: string | undefined;
       do {
-        const res = await api(`models?pageSize=1000${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}`, {signal});
+        const res = await api(`models?pageSize=1000${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}`, {signal: signal ?? null});
         if (!res.ok) throw new Error(`Gemini connection failed (${res.status}). Check the API key and access.`);
         const json = await res.json() as { models?: {name: string; supportedGenerationMethods?: string[]}[]; nextPageToken?: string };
         models.push(...(json.models ?? []).filter(m => m.supportedGenerationMethods?.includes('generateContent')).map(m => m.name.replace(/^models\//, '')));
@@ -53,7 +55,7 @@ export function createGeminiProvider(key?: string, model = DEFAULT_GEMINI_MODEL)
     },
     testCompletion: prompt => completion([{role:'user',content:prompt}]),
     async streamChat({ messages, signal }) {
-      const res = await api(`models/${model}:streamGenerateContent?alt=sse`, {method:'POST', body:JSON.stringify(geminiBody(messages)), signal});
+      const res = await api(`models/${model}:streamGenerateContent?alt=sse`, {method:'POST', body:JSON.stringify(geminiBody(messages)), signal: signal ?? null});
       if (!res.ok || !res.body) return res;
       const reader = res.body.getReader();
       const decoder = new TextDecoder();

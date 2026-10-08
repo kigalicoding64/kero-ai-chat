@@ -30,6 +30,7 @@ async function nvidiaFetch(path: string, init: RequestInit = {}, override?: stri
   const key = requireKey(override);
   return fetch(`${NVIDIA_BASE_URL}${path}`, {
     ...init,
+    signal: init.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(45_000)]) : AbortSignal.timeout(45_000),
     headers: {
       Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
@@ -70,7 +71,7 @@ return {
   },
 
   async listModels(signal) {
-    const res = await nvidiaFetch("/models", { signal }, keyOverride);
+    const res = await nvidiaFetch("/models", { signal: signal ?? null }, keyOverride);
     if (!res.ok) throw new Error(`NVIDIA connection failed (${res.status}). Check credentials and model access.`);
     const json = (await res.json()) as { data?: { id?: string }[] };
     return (json.data ?? []).map((m) => m.id).filter((id): id is string => Boolean(id));

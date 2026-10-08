@@ -31,7 +31,7 @@ export const validateAndSaveProvider = createServerFn({method:'POST'}).middlewar
     const model = settings?.gemini_model || DEFAULT_GEMINI_MODEL;
     const provider = data.provider === 'gemini' ? createGeminiProvider(key,model) : createNvidiaProvider(key);
     const started = Date.now();
-    const models = await provider.listModels();
+    const models = await provider.listModels(AbortSignal.timeout(12_000));
     if (!models.includes(provider.describe().model)) throw new Error('The configured model is not available for this key. Nothing was changed.');
     const result = await provider.testCompletion('Reply with exactly: KERO OK');
     if (!result.text.trim()) throw new Error('The provider did not return a reply. Nothing was changed.');

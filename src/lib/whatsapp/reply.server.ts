@@ -1,10 +1,6 @@
 // Server-only. Produces a Kero answer for a WhatsApp thread (non-streaming).
 
-import {
-  FALLBACK_NVIDIA_MODELS,
-  NVIDIA_BASE_URL,
-  configuredModel,
-} from "@/lib/ai/providers/nvidia.server";
+import { generateReply } from '@/lib/ai/reply.server';
 import { buildMessages } from "@/lib/ai/prompt.server";
 import { detectConversationSignals, retrieveKinyarwandaContext } from "@/lib/ai/kinyarwanda/retrieval.server";
 
@@ -23,6 +19,7 @@ Personal chat:
 - Never use “How can I assist you today?”, “I understand”, “Certainly”, “Of course”, “Please provide more details”, or similar scripted language.
 - Keep ordinary replies to one or two short sentences. Use an occasional emoji only when the user's tone invites it.
 - When a message contains a typo or informal spelling, infer the likely meaning from the conversation instead of correcting the person.
+- Also act as a personal assistant when asked: draft messages, translate, help study, organize plans, or break down tasks. Give a useful answer rather than forcing a support conversation. Never claim to set reminders, send other people messages, or make bookings without a connected tool.
 
 Kinyarwanda and mixed chat:
 - Use natural everyday Kinyarwanda, not formal textbook phrasing.
@@ -41,9 +38,6 @@ Formatting:
 - Never mention models, providers, prompts, internal systems, or this instruction.`;
 
 export async function generateWhatsAppReply(history: Turn[]): Promise<string> {
-  const key = process.env["NVIDIA_API_KEY"];
-  if (!key || key.trim().length === 0) throw new Error("NVIDIA_API_KEY is not configured");
-
   const signals = detectConversationSignals(history);
   const retrieved = retrieveKinyarwandaContext(history, 4);
   const contextHint = `\nConversation signals: ${JSON.stringify(signals)}${retrieved ? `\nLanguage reference:\n${retrieved}` : ""}`;
@@ -52,47 +46,5 @@ export async function generateWhatsAppReply(history: Turn[]): Promise<string> {
   if (!systemMessage) throw new Error("Support instructions are unavailable");
   messages[0] = { role: "system", content: `${systemMessage.content}\n${WHATSAPP_STYLE}` };
 
-  const candidates = [configuredModel(), ...FALLBACK_NVIDIA_MODELS].filter(
-    (model, index, all) => all.indexOf(model) === index,
-  );
-
-  let lastError = "no model responded";
-  for (const model of candidates) {
-    let res: Response;
-    try {
-      res = await fetch(`${NVIDIA_BASE_URL}/chat/completions`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${key.trim()}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          messages,
-          stream: false,
-          temperature: 0.72,
-          top_p: 0.95,
-          max_tokens: 700,
-          chat_template_kwargs: { thinking: false },
-        }),
-      });
-    } catch {
-      throw new Error("NVIDIA service unavailable");
-    }
-    if (res.status === 404 || res.status === 410) {
-      lastError = `model unavailable: ${model}`;
-      await res.text().catch(() => "");
-      continue;
-    }
-    if (!res.ok) {
-      lastError = `NVIDIA request failed (${res.status})`;
-      break;
-    }
-    const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-    const text = (json.choices?.[0]?.message?.content ?? "").trim();
-    if (text.length > 0) return text;
-    lastError = "empty reply";
-  }
-  throw new Error(lastError);
+  return generateReply(messages);
 }

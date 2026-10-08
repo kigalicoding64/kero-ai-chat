@@ -37,8 +37,11 @@ async function buildPayload(): Promise<HealthPayload> {
     process.env["SUPABASE_URL"] && process.env["SUPABASE_PUBLISHABLE_KEY"],
   );
 
-  const { getProvider } = await import("@/lib/ai/providers/registry.server");
-  const info = getProvider().describe();
+  const { getActiveProvider } = await import("@/lib/ai/providers/registry.server");
+  let provider;
+  try { provider = await getActiveProvider(); }
+  catch { return {status:'error',provider:'unavailable',configured:false,backend:'misconfigured',checkedAt,reason:'AI settings could not be loaded.'}; }
+  const info = provider.describe();
 
   if (!supabaseConfigured) {
     return {
@@ -66,24 +69,17 @@ async function buildPayload(): Promise<HealthPayload> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
   try {
-    const { NVIDIA_BASE_URL } = await import("@/lib/ai/providers/nvidia.server");
-    const res = await fetch(`${NVIDIA_BASE_URL}/models`, {
-      headers: { Authorization: `Bearer ${process.env["NVIDIA_API_KEY"]}` },
-      signal: controller.signal,
-    });
-    if (res.ok) {
+    const models = await provider.listModels(controller.signal);
+    if (models.includes(info.model)) {
       return { status: "connected", provider: info.id, configured: true, backend: "ok", checkedAt };
     }
     return {
-      status: res.status === 401 || res.status === 403 ? "error" : "degraded",
+      status: 'degraded',
       provider: info.id,
       configured: true,
       backend: "ok",
       checkedAt,
-      reason:
-        res.status === 401 || res.status === 403
-          ? "The AI provider rejected this deployment's credentials."
-          : "The AI provider is currently unavailable.",
+      reason: 'The configured model is not listed for this provider.',
     };
   } catch {
     return {
@@ -92,7 +88,7 @@ async function buildPayload(): Promise<HealthPayload> {
       configured: true,
       backend: "ok",
       checkedAt,
-      reason: "The AI provider did not respond in time.",
+      reason: "The AI provider connection could not be verified.",
     };
   } finally {
     clearTimeout(timer);
