@@ -29,6 +29,12 @@ async function decryptKey(value: string) {
 }
 
 export async function readSettings() {
+  // Hosts without the privileged server key can't read saved admin settings;
+  // fall back to environment defaults (NVIDIA_API_KEY / NVIDIA_MODEL) instead of breaking chat.
+  if (!process.env['SUPABASE_SERVICE_ROLE_KEY']) {
+    console.warn('[kero] SUPABASE_SERVICE_ROLE_KEY not set on this host; using environment AI defaults.');
+    return null;
+  }
   const { data, error } = await supabaseAdmin.from('kero_provider_settings').select('*').eq('id', 'global').abortSignal(AbortSignal.timeout(4_000)).maybeSingle();
   if (error) throw new Error('AI settings could not be loaded.');
   return data;
