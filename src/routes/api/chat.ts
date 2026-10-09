@@ -63,6 +63,9 @@ export const Route = createFileRoute("/api/chat")({
         ].filter((model, index, all) => all.indexOf(model) === index);
 
         const messages = buildMessages(parsed.messages);
+        const { webContextFor } = await import("@/lib/ai/web-search.server");
+        const web = await webContextFor(parsed.messages).catch(() => "");
+        if (web && messages[0]) messages[0] = { role: "system", content: messages[0].content + web };
         let upstream: Response | undefined;
         for (const model of candidates) {
           try {

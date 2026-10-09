@@ -2,6 +2,7 @@
 
 import { generateReply } from '@/lib/ai/reply.server';
 import { buildMessages } from "@/lib/ai/prompt.server";
+import { webContextFor } from "@/lib/ai/web-search.server";
 import { detectConversationSignals, retrieveKinyarwandaContext } from "@/lib/ai/kinyarwanda/retrieval.server";
 
 type Turn = { role: "user" | "assistant"; content: string };
@@ -44,7 +45,8 @@ export async function generateWhatsAppReply(history: Turn[]): Promise<string> {
   const messages = buildMessages(history, 20, contextHint);
   const systemMessage = messages[0];
   if (!systemMessage) throw new Error("Support instructions are unavailable");
-  messages[0] = { role: "system", content: `${systemMessage.content}\n${WHATSAPP_STYLE}` };
+  const web = await webContextFor(history).catch(() => "");
+  messages[0] = { role: "system", content: `${systemMessage.content}\n${WHATSAPP_STYLE}${web}` };
 
   return generateReply(messages);
 }
