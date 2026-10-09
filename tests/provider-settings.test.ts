@@ -12,7 +12,7 @@ const provider = {describe:() => ({model:'test-model'}),listModels:async () => [
 mock.module('@/lib/ai/provider-settings.server', () => ({readSettings:async () => null, readProviderKey:async () => undefined,encryptKey:async () => 'encrypted-test-value',writeSettings:async (values:Record<string,unknown>) => {saved=values;}}));
 mock.module('@/lib/ai/providers/gemini.server', () => ({DEFAULT_GEMINI_MODEL:'test-model',createGeminiProvider:() => provider}));
 mock.module('@/lib/ai/providers/nvidia.server', () => ({createNvidiaProvider:() => provider}));
-const functions = await import('./provider-settings.functions');
+const functions = await import('../src/lib/provider-settings.functions');
 type Handler = (input:{data?:{provider:string;apiKey?:string;activate:boolean};context:{userId:string;supabase:{rpc:() => Promise<{data:boolean;error:null}>}}}) => Promise<unknown>;
 const settings = functions.getAiSettings as unknown as Handler;
 const save = functions.validateAndSaveProvider as unknown as Handler;

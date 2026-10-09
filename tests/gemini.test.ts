@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from 'bun:test';
-import { createGeminiProvider, geminiBody, geminiText } from './gemini.server';
+import { createGeminiProvider, geminiBody, geminiText } from '../src/lib/ai/providers/gemini.server';
 
 const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; });
