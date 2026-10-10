@@ -1,6 +1,14 @@
 import type { AiProvider, ChatMessage } from '../types';
 
-export const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
+export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
+export const GEMINI_FALLBACK_MODELS = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-3.8-flash'];
+const RETRYABLE = [429, 500, 503, 404];
+export function geminiStatusMessage(status: number) {
+  if (status === 429) return 'Gemini is busy: this API key reached its per-minute limit. Wait a minute and try again, or upgrade the Google plan.';
+  if (status === 503 || status === 500) return 'Gemini is temporarily overloaded at Google. Please try again in a moment.';
+  if (status === 401 || status === 403) return 'Gemini rejected this API key. Check the key and its access.';
+  return `Gemini connection failed (${status}). Check the API key, model access, and quota.`;
+}
 const BASE = 'https://generativelanguage.googleapis.com/v1beta';
 type GeminiResult = {
   error?: unknown;
@@ -31,9 +39,25 @@ export function createGeminiProvider(key?: string, model = DEFAULT_GEMINI_MODEL)
     const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
     return fetch(`${BASE}/${path}`, { ...init, signal, headers: { 'x-goog-api-key': key, 'content-type': 'application/json' } });
   }
+  // Google often answers 503 (overloaded) or 429 (per-minute quota) briefly.
+  // Retry each model once after a short pause, then try the fallback models.
+  async function generate(action: string, body: string, signal?: AbortSignal | null) {
+    const models = [...new Set([model, ...GEMINI_FALLBACK_MODELS])];
+    let res: Response | undefined;
+    for (const candidate of models) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        res = await api(`models/${candidate}:${action}`, { method: 'POST', body, signal: signal ?? null });
+        if (!RETRYABLE.includes(res.status)) return res;
+        await res.body?.cancel().catch(() => {});
+        if (signal?.aborted) return res;
+        if (attempt === 0) await new Promise(r => setTimeout(r, 800));
+      }
+    }
+    return res!;
+  }
   async function completion(messages: ChatMessage[]) {
-    const res = await api(`models/${model}:generateContent`, { method: 'POST', body: JSON.stringify(geminiBody(messages)) });
-    if (!res.ok) throw new Error(`Gemini connection failed (${res.status}). Check the API key, model access, and quota.`);
+    const res = await generate('generateContent', JSON.stringify(geminiBody(messages)));
+    if (!res.ok) throw new Error(geminiStatusMessage(res.status));
     const text = geminiText(await res.json());
     if (!text.trim()) throw new Error('Gemini returned no answer.');
     return {text, model};
@@ -55,7 +79,7 @@ export function createGeminiProvider(key?: string, model = DEFAULT_GEMINI_MODEL)
     },
     testCompletion: prompt => completion([{role:'user',content:prompt}]),
     async streamChat({ messages, signal }) {
-      const res = await api(`models/${model}:streamGenerateContent?alt=sse`, {method:'POST', body:JSON.stringify(geminiBody(messages)), signal: signal ?? null});
+      const res = await generate("streamGenerateContent?alt=sse", JSON.stringify(geminiBody(messages)), signal);
       if (!res.ok || !res.body) return res;
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
