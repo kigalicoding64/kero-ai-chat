@@ -4,7 +4,7 @@ import type { AiProvider } from "../types";
 import { nvidiaProvider } from "./nvidia.server";
 import { createNvidiaProvider } from './nvidia.server';
 import { createGeminiProvider, DEFAULT_GEMINI_MODEL } from './gemini.server';
-import { readSettings, readProviderKey } from '../provider-settings.server';
+import { readSettings, readProviderKey, envProvider, envGeminiModel } from '../provider-settings.server';
 
 const providers: Record<string, AiProvider> = {
   [nvidiaProvider.id]: nvidiaProvider,
@@ -24,9 +24,9 @@ export function listProviders(): AiProvider[] {
 
 export async function getActiveProvider(): Promise<AiProvider> {
   const settings = await readSettings();
-  const id = settings?.active_provider === 'gemini' ? 'gemini' : 'nvidia';
+  const id = settings ? (settings.active_provider === 'gemini' ? 'gemini' : 'nvidia') : envProvider();
   const key = await readProviderKey(id, settings);
   return id === 'gemini'
-    ? createGeminiProvider(key, settings?.gemini_model || DEFAULT_GEMINI_MODEL)
+    ? createGeminiProvider(key, settings?.gemini_model || envGeminiModel() || DEFAULT_GEMINI_MODEL)
     : createNvidiaProvider(key);
 }

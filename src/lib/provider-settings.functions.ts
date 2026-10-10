@@ -11,10 +11,10 @@ export const getAiAdminAccess = createServerFn({method:'GET'}).middleware([requi
 export const getAiSettings = createServerFn({method:'GET'}).middleware([requireSupabaseAuth]).handler(async ({context}) => {
   const {data,error} = await context.supabase.rpc('has_role',{_user_id:context.userId,_role:'admin'});
   if (error || !data) throw new Error('Only administrators can manage AI settings.');
-  const {readSettings,readProviderKey} = await import('@/lib/ai/provider-settings.server');
+  const {readSettings,readProviderKey,envProvider,envGeminiModel} = await import('@/lib/ai/provider-settings.server');
   const {DEFAULT_GEMINI_MODEL} = await import('@/lib/ai/providers/gemini.server');
   const settings = await readSettings();
-  return {activeProvider:settings?.active_provider ?? 'nvidia', geminiModel:settings?.gemini_model || DEFAULT_GEMINI_MODEL, nvidiaConfigured:Boolean(await readProviderKey('nvidia',settings)),geminiConfigured:Boolean(await readProviderKey('gemini',settings))};
+  return {envOnly:!settings, activeProvider:settings?.active_provider ?? envProvider(), geminiModel:settings?.gemini_model || envGeminiModel() || DEFAULT_GEMINI_MODEL, nvidiaConfigured:Boolean(await readProviderKey('nvidia',settings)),geminiConfigured:Boolean(await readProviderKey('gemini',settings))};
 });
 
 export const validateAndSaveProvider = createServerFn({method:'POST'}).middleware([requireSupabaseAuth])
