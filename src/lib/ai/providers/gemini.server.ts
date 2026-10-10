@@ -79,7 +79,7 @@ export function createGeminiProvider(key?: string, model = DEFAULT_GEMINI_MODEL)
     },
     testCompletion: prompt => completion([{role:'user',content:prompt}]),
     async streamChat({ messages, signal }) {
-      const res = await api(`models/${model}:streamGenerateContent?alt=sse`, {method:'POST', body:JSON.stringify(geminiBody(messages)), signal: signal ?? null});
+      const res = await generate("streamGenerateContent?alt=sse", JSON.stringify(geminiBody(messages)), signal);
       if (!res.ok || !res.body) return res;
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
