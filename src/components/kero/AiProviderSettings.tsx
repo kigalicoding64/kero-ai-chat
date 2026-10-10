@@ -24,6 +24,7 @@ export function AiProviderSettings() {
   if (settings.isError) return <div className="mt-6"><p className="text-sm text-destructive">{settings.error.message}</p><Button variant="outline" onClick={() => void settings.refetch()}>Retry</Button></div>;
   return <section className="mt-8 border-y border-border py-6">
     <h2 className="font-display text-lg font-semibold">AI provider</h2>
+    {settings.data?.envOnly && <p className="mt-2 text-sm text-muted-foreground">This site uses the hosting settings. To switch, set AI_PROVIDER to gemini or nvidia there and redeploy.</p>}
     <div className="mt-4 grid gap-5 sm:grid-cols-2">
       {(['nvidia','gemini'] as const).map(provider => {
         const active = settings.data?.activeProvider === provider;

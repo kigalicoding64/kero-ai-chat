@@ -43,7 +43,20 @@ export async function readSettings() {
 export async function readProviderKey(provider: ProviderId, settings: Awaited<ReturnType<typeof readSettings>>) {
   const encrypted = provider === 'gemini' ? settings?.gemini_key_encrypted : settings?.nvidia_key_encrypted;
   if (encrypted) return decryptKey(encrypted);
-  return process.env[provider === 'gemini' ? 'GOOGLE_API_KEY' : 'NVIDIA_API_KEY']?.trim();
+  if (provider === 'gemini') return (process.env['GOOGLE_API_KEY'] || process.env['GEMINI_API_KEY'])?.trim();
+  return process.env['NVIDIA_API_KEY']?.trim();
+}
+
+// Provider chosen by the hosting environment when no saved setting exists.
+export function envProvider(): ProviderId {
+  const chosen = process.env['AI_PROVIDER']?.trim().toLowerCase();
+  if (chosen === 'gemini' || chosen === 'nvidia') return chosen;
+  const hasGemini = Boolean(process.env['GOOGLE_API_KEY'] || process.env['GEMINI_API_KEY']);
+  return hasGemini && !process.env['NVIDIA_API_KEY'] ? 'gemini' : 'nvidia';
+}
+
+export function envGeminiModel() {
+  return process.env['GEMINI_MODEL']?.trim() || undefined;
 }
 
 export async function writeSettings(values: {
