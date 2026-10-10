@@ -58,7 +58,7 @@ export const Route = createFileRoute("/api/public/whatsapp/webhook")({
           return new Response("invalid signature", { status: 401 });
         }
 
-        if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        if (!process.env["SUPABASE_SERVICE_ROLE_KEY"]) {
           console.warn("[whatsapp] privileged server key not set on this host; WhatsApp is handled by the Lovable-hosted app.");
           return new Response("whatsapp not available on this host", { status: 503 });
         }
