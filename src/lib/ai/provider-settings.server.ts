@@ -52,6 +52,9 @@ export async function writeSettings(values: {
   gemini_key_encrypted?: string;
   gemini_model?: string;
 }, userId: string) {
+  if (!process.env['SUPABASE_SERVICE_ROLE_KEY']) {
+    throw new Error('Saving AI settings is not available on this host. Set NVIDIA_API_KEY or GOOGLE_API_KEY in the hosting environment instead.');
+  }
   const { error } = await supabaseAdmin.from('kero_provider_settings').upsert({ id: 'global', ...values, updated_by: userId, updated_at: new Date().toISOString() }, { onConflict: 'id' });
   if (error) throw new Error('AI settings could not be saved.');
   await supabaseAdmin.from('audit_logs').insert({user_id: userId, action: 'ai_settings_updated', details: { provider: values.active_provider, credentialChanged: Boolean(values.gemini_key_encrypted || values.nvidia_key_encrypted) }});
