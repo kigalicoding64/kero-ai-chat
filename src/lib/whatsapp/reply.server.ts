@@ -34,6 +34,13 @@ Business/support:
 - This is Egreed Technology's official support WhatsApp on +250794433166. Apply the shared Egreed support guidance and voice examples above whenever the conversation concerns customer service.
 - Give the full useful answer when needed; the one-or-two-sentence limit is only for ordinary casual chat.
 
+Voice notes:
+- A user turn starting with "[Voice note]" is a transcript of their voice message. Reply to what they said, in the same language, as if you heard it. Do not mention transcripts. If part seems unclear, answer what you understood and briefly check the unclear part.
+
+Answer quality:
+- Read the whole recent conversation before answering; refer back to earlier details instead of asking again.
+- Be accurate and specific. When unsure, say so plainly rather than guessing.
+
 Formatting:
 - Plain text only. No headings, markdown, numbered lists, “Answer:”, or commentary about your communication style unless explicitly requested.
 - Never mention models, providers, prompts, internal systems, or this instruction.`;
@@ -48,5 +55,28 @@ export async function generateWhatsAppReply(history: Turn[]): Promise<string> {
   const web = await webContextFor(history).catch(() => "");
   messages[0] = { role: "system", content: `${systemMessage.content}\n${WHATSAPP_STYLE}${web}` };
 
+  // Prefer Gemini for WhatsApp whenever a Gemini key is available.
+  try {
+    const { geminiKey } = await import("@/lib/whatsapp/voice.server");
+    const { key, model } = await geminiKey();
+    if (key) {
+      const { geminiBody, geminiText, GEMINI_FALLBACK_MODELS } = await import("@/lib/ai/providers/gemini.server");
+      let result: { text: string } | null = null;
+      for (const candidate of [...new Set([model, ...GEMINI_FALLBACK_MODELS])]) {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${candidate}:generateContent`, {
+          method: "POST",
+          body: JSON.stringify({ ...geminiBody(messages), generationConfig: { temperature: 0.6 } }),
+          signal: AbortSignal.timeout(45_000),
+          headers: { "x-goog-api-key": key, "content-type": "application/json" },
+        });
+        if (!res.ok) { await res.body?.cancel().catch(() => {}); continue; }
+        result = { text: geminiText(await res.json()) };
+        break;
+      }
+      if (result?.text.trim()) return result.text.trim();
+    }
+  } catch (error) {
+    console.warn("[whatsapp] Gemini reply failed, using active provider", error);
+  }
   return generateReply(messages);
 }

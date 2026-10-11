@@ -11,6 +11,12 @@ interface WaValue {
     timestamp?: string;
     type?: string;
     text?: { body?: string };
+    audio?: { id?: string; mime_type?: string; voice?: boolean };
+    image?: { caption?: string };
+    video?: { caption?: string };
+    document?: { caption?: string };
+    button?: { text?: string };
+    interactive?: { button_reply?: { title?: string }; list_reply?: { title?: string } };
   }[];
   statuses?: {
     id?: string;
@@ -149,8 +155,26 @@ async function handleInbound(admin: Admin, value: WaValue) {
   for (const message of value.messages ?? []) {
     const from = message.from;
     const waId = message.id;
-    const text = message.text?.body?.trim() ?? "";
     if (!from || !waId) continue;
+    let text = (
+      message.text?.body ??
+      message.button?.text ??
+      message.interactive?.button_reply?.title ??
+      message.interactive?.list_reply?.title ??
+      message.image?.caption ?? message.video?.caption ?? message.document?.caption ?? ""
+    ).trim();
+    let voiceFailed = false;
+    if (message.type === "audio" && message.audio?.id) {
+      try {
+        const { downloadWhatsAppMedia, transcribeVoiceNote } = await import("@/lib/whatsapp/voice.server");
+        const transcript = await transcribeVoiceNote(await downloadWhatsAppMedia(message.audio.id));
+        if (transcript) text = `[Voice note] ${transcript}`;
+        else voiceFailed = true;
+      } catch (error) {
+        console.error("[whatsapp] voice note failed", error);
+        voiceFailed = true;
+      }
+    }
 
     // Already handled (gateway retry or duplicate)?
     const { data: seen } = await admin
@@ -192,6 +216,10 @@ async function handleInbound(admin: Admin, value: WaValue) {
     // Unknown sender writing to the official support line: still answer, but there is
     // no linked number to file the thread under, so reply without storing a thread.
     if (!number) {
+      if (voiceFailed) {
+        await sendWhatsAppText(from, "Sorry, I couldn't hear that voice note clearly. Could you send it again or type it?");
+        continue;
+      }
       if (!text) continue;
       await sleep(REPLY_DELAY_MS);
       try {
@@ -250,7 +278,12 @@ async function handleInbound(admin: Admin, value: WaValue) {
 
     if (!number.auto_reply) continue;
     if (!text) {
-      await sendWhatsAppText(from, "I can only read text messages for now.");
+      await sendWhatsAppText(
+        from,
+        voiceFailed
+          ? "Sorry, I couldn't hear that voice note clearly. Could you send it again or type it?"
+          : "I can read text and voice notes. Could you tell me in a message what you need?",
+      );
       continue;
     }
 
