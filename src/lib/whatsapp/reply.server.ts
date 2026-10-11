@@ -60,10 +60,19 @@ export async function generateWhatsAppReply(history: Turn[]): Promise<string> {
     const { geminiKey } = await import("@/lib/whatsapp/voice.server");
     const { key, model } = await geminiKey();
     if (key) {
-      const { createGeminiProvider } = await import("@/lib/ai/providers/gemini.server");
-      const result = await createGeminiProvider(key, model).testCompletion !== undefined
-        ? await createGeminiProvider(key, model).completion(messages)
-        : null;
+      const { geminiBody, geminiText, GEMINI_FALLBACK_MODELS } = await import("@/lib/ai/providers/gemini.server");
+      let result: { text: string } | null = null;
+      for (const candidate of [...new Set([model, ...GEMINI_FALLBACK_MODELS])]) {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${candidate}:generateContent`, {
+          method: "POST",
+          body: JSON.stringify({ ...geminiBody(messages), generationConfig: { temperature: 0.6 } }),
+          signal: AbortSignal.timeout(45_000),
+          headers: { "x-goog-api-key": key, "content-type": "application/json" },
+        });
+        if (!res.ok) { await res.body?.cancel().catch(() => {}); continue; }
+        result = { text: geminiText(await res.json()) };
+        break;
+      }
       if (result?.text.trim()) return result.text.trim();
     }
   } catch (error) {
