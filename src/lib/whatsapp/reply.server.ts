@@ -52,7 +52,7 @@ export async function generateWhatsAppReply(history: Turn[]): Promise<string> {
   const messages = buildMessages(history, 20, contextHint);
   const systemMessage = messages[0];
   if (!systemMessage) throw new Error("Support instructions are unavailable");
-  const web = await webContextFor(history).catch(() => "");
+  const web = await Promise.race([webContextFor(history).catch(() => ""), new Promise<string>((r) => setTimeout(() => r(""), 4000))]);
   messages[0] = { role: "system", content: `${systemMessage.content}\n${WHATSAPP_STYLE}${web}` };
 
   // Prefer Gemini for WhatsApp whenever a Gemini key is available.
@@ -62,11 +62,11 @@ export async function generateWhatsAppReply(history: Turn[]): Promise<string> {
     if (key) {
       const { geminiBody, geminiText, GEMINI_FALLBACK_MODELS } = await import("@/lib/ai/providers/gemini.server");
       let result: { text: string } | null = null;
-      for (const candidate of [...new Set([model, ...GEMINI_FALLBACK_MODELS])]) {
+      for (const candidate of [...new Set([model, ...GEMINI_FALLBACK_MODELS])].slice(0, 2)) {
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${candidate}:generateContent`, {
           method: "POST",
           body: JSON.stringify({ ...geminiBody(messages), generationConfig: { temperature: 0.6 } }),
-          signal: AbortSignal.timeout(45_000),
+          signal: AbortSignal.timeout(15_000),
           headers: { "x-goog-api-key": key, "content-type": "application/json" },
         });
         if (!res.ok) { await res.body?.cancel().catch(() => {}); continue; }

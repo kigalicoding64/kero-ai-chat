@@ -179,10 +179,24 @@ async function handleInbound(admin: Admin, value: WaValue) {
     // Already handled (gateway retry or duplicate)?
     const { data: seen } = await admin
       .from("whatsapp_messages")
-      .select("id")
+      .select("id, conversation_id, created_at")
       .eq("wa_message_id", waId)
       .maybeSingle();
-    if (seen) continue;
+    // A previous attempt may have been cut off before replying (gateway retry).
+    // Only skip when a reply already exists after this message.
+    let resumeRow: { id: string; created_at: string } | null = null;
+    if (seen) {
+      const { data: answered } = await admin
+        .from("whatsapp_messages")
+        .select("id")
+        .eq("conversation_id", seen.conversation_id)
+        .eq("direction", "outbound")
+        .gte("created_at", seen.created_at)
+        .limit(1);
+      if ((answered ?? []).length > 0) continue;
+      if (Date.now() - new Date(seen.created_at).getTime() > 10 * 60_000) continue;
+      resumeRow = { id: seen.id, created_at: seen.created_at };
+    }
 
     const { data: number } = await admin
       .from("whatsapp_numbers")
@@ -254,7 +268,7 @@ async function handleInbound(admin: Admin, value: WaValue) {
       thread = created;
     }
 
-    const { data: inboundRow, error: insertError } = await admin
+    const inserted = resumeRow ? { data: resumeRow, error: null } : await admin
       .from("whatsapp_messages")
       .insert({
         conversation_id: thread!.id,
@@ -269,7 +283,8 @@ async function handleInbound(admin: Admin, value: WaValue) {
       })
       .select("id, created_at")
       .single();
-    if (insertError) throw new Error(insertError.message);
+    const inboundRow = inserted.data;
+    if (inserted.error) throw new Error(inserted.error.message);
 
     await admin
       .from("whatsapp_conversations")
