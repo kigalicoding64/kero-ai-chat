@@ -89,25 +89,34 @@ export const Route = createFileRoute("/api/public/whatsapp/webhook")({
           }
         }
 
-        try {
-          if (event === "whatsapp.message") await handleInbound(supabaseAdmin, waValue(payload));
-          else if (event === "whatsapp.status") await handleStatus(supabaseAdmin, waValue(payload));
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          console.error("[whatsapp] processing failed", message);
+        const processDelivery = async () => {
+          try {
+            if (event === "whatsapp.message") await handleInbound(supabaseAdmin, waValue(payload));
+            else if (event === "whatsapp.status") await handleStatus(supabaseAdmin, waValue(payload));
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error("[whatsapp] processing failed", message);
+            await supabaseAdmin
+              .from("whatsapp_webhook_events")
+              .update({ processing_error: message.slice(0, 500) })
+              .eq("delivery_id", deliveryId);
+            return false;
+          }
           await supabaseAdmin
             .from("whatsapp_webhook_events")
-            .update({ processing_error: message.slice(0, 500) })
+            .update({ processed_at: new Date().toISOString(), processing_error: null })
             .eq("delivery_id", deliveryId);
-          return new Response("processing error", { status: 500 });
+          return true;
+        };
+
+        // Replies take longer than the gateway's 5s window, which cut the work off
+        // before Kero could answer. Acknowledge now and finish in the background.
+        const task = processDelivery();
+        if (event === "whatsapp.message" && (await runInBackground(task))) {
+          return new Response("ok");
         }
-
-        await supabaseAdmin
-          .from("whatsapp_webhook_events")
-          .update({ processed_at: new Date().toISOString(), processing_error: null })
-          .eq("delivery_id", deliveryId);
-
-        return new Response("ok");
+        const ok = await task;
+        return ok ? new Response("ok") : new Response("processing error", { status: 500 });
       },
     },
   },
@@ -142,13 +151,26 @@ async function handleStatus(admin: Admin, value: WaValue) {
   }
 }
 
-/** Natural pause before answering, so a person can finish typing their thought. */
-const REPLY_DELAY_MS = 2000;
+/** Short pause so a quick follow-up message is answered together. */
+const REPLY_DELAY_MS = 800;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** Keeps the worker alive after the response on Cloudflare; false elsewhere (dev). */
+async function runInBackground(task: Promise<unknown>): Promise<boolean> {
+  try {
+    const spec = "cloudflare:workers";
+    const mod = (await import(/* @vite-ignore */ spec)) as { waitUntil?: (p: Promise<unknown>) => void };
+    if (typeof mod.waitUntil !== "function") return false;
+    mod.waitUntil(task);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function handleInbound(admin: Admin, value: WaValue) {
-  const { sendWhatsAppText } = await import("@/lib/whatsapp/gateway.server");
+  const { sendWhatsAppText, sendTypingIndicator } = await import("@/lib/whatsapp/gateway.server");
   const { generateWhatsAppReply } = await import("@/lib/whatsapp/reply.server");
   const contactName = value.contacts?.[0]?.profile?.name ?? null;
 
@@ -156,6 +178,8 @@ async function handleInbound(admin: Admin, value: WaValue) {
     const from = message.from;
     const waId = message.id;
     if (!from || !waId) continue;
+    // Show "typing…" (and blue ticks) right away while Kero prepares the answer.
+    await sendTypingIndicator(waId);
     let text = (
       message.text?.body ??
       message.button?.text ??
