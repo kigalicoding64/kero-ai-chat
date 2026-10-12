@@ -89,7 +89,7 @@ export const Route = createFileRoute("/api/public/whatsapp/webhook")({
           }
         }
 
-        const process = async () => {
+        const processDelivery = async () => {
           try {
             if (event === "whatsapp.message") await handleInbound(supabaseAdmin, waValue(payload));
             else if (event === "whatsapp.status") await handleStatus(supabaseAdmin, waValue(payload));
@@ -111,7 +111,7 @@ export const Route = createFileRoute("/api/public/whatsapp/webhook")({
 
         // Replies take longer than the gateway's 5s window, which cut the work off
         // before Kero could answer. Acknowledge now and finish in the background.
-        const task = process();
+        const task = processDelivery();
         if (event === "whatsapp.message" && (await runInBackground(task))) {
           return new Response("ok");
         }
@@ -171,7 +171,12 @@ async function runInBackground(task: Promise<unknown>): Promise<boolean> {
 
 async function handleInbound(admin: Admin, value: WaValue) {
   const { sendWhatsAppText, sendTypingIndicator } = await import("@/lib/whatsapp/gateway.server");
-...
+  const { generateWhatsAppReply } = await import("@/lib/whatsapp/reply.server");
+  const contactName = value.contacts?.[0]?.profile?.name ?? null;
+
+  for (const message of value.messages ?? []) {
+    const from = message.from;
+    const waId = message.id;
     if (!from || !waId) continue;
     // Show "typing…" (and blue ticks) right away while Kero prepares the answer.
     await sendTypingIndicator(waId);
