@@ -111,10 +111,11 @@ export const Route = createFileRoute("/api/public/whatsapp/webhook")({
 
         // Replies take longer than the gateway's 5s window, which cut the work off
         // before Kero could answer. Acknowledge now and finish in the background.
-        if (event === "whatsapp.message" && (await runInBackground(process()))) {
+        const task = process();
+        if (event === "whatsapp.message" && (await runInBackground(task))) {
           return new Response("ok");
         }
-        const ok = await process();
+        const ok = await task;
         return ok ? new Response("ok") : new Response("processing error", { status: 500 });
       },
     },
@@ -150,10 +151,23 @@ async function handleStatus(admin: Admin, value: WaValue) {
   }
 }
 
-/** Natural pause before answering, so a person can finish typing their thought. */
-const REPLY_DELAY_MS = 2000;
+/** Short pause so a quick follow-up message is answered together. */
+const REPLY_DELAY_MS = 800;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Keeps the worker alive after the response on Cloudflare; false elsewhere (dev). */
+async function runInBackground(task: Promise<unknown>): Promise<boolean> {
+  try {
+    const spec = "cloudflare:workers";
+    const mod = (await import(/* @vite-ignore */ spec)) as { waitUntil?: (p: Promise<unknown>) => void };
+    if (typeof mod.waitUntil !== "function") return false;
+    mod.waitUntil(task);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 async function handleInbound(admin: Admin, value: WaValue) {
   const { sendWhatsAppText } = await import("@/lib/whatsapp/gateway.server");
