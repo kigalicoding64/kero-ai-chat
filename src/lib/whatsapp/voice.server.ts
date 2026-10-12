@@ -22,29 +22,36 @@ export async function geminiKey() {
 /** Fetches the audio bytes for a WhatsApp media id. */
 export async function downloadWhatsAppMedia(mediaId: string): Promise<{ data: ArrayBuffer; mime: string }> {
   const headers = gatewayHeaders();
-  const meta = await fetch(`${GATEWAY_URL}/${encodeURIComponent(mediaId)}`, { headers, signal: AbortSignal.timeout(15_000) });
+  const meta = await fetch(`${GATEWAY_URL}/media/${encodeURIComponent(mediaId)}`, { headers, signal: AbortSignal.timeout(15_000) });
   if (!meta.ok) throw new Error(`media lookup failed (${meta.status})`);
   const info = (await meta.json()) as { url?: string; mime_type?: string; file_size?: number };
   if (!info.url) throw new Error("media url missing");
   if (info.file_size && info.file_size > MAX_AUDIO_BYTES) throw new Error("voice note too large");
   const mime = (info.mime_type || "audio/ogg").split(";")[0]!.trim();
 
-  // Prefer the gateway proxy for the signed media URL; fall back to a direct fetch.
-  const attempts = [
-    () => fetch(`${GATEWAY_URL}/media?url=${encodeURIComponent(info.url!)}`, { headers, signal: AbortSignal.timeout(20_000) }),
-    () => fetch(info.url!, { headers, signal: AbortSignal.timeout(20_000) }),
-  ];
-  for (const attempt of attempts) {
-    const res = await attempt().catch(() => null);
-    const type = res?.headers.get("content-type") ?? "";
-    if (res?.ok && !type.includes("json") && !type.includes("html")) {
-      const data = await res.arrayBuffer();
-      if (data.byteLength > 0 && data.byteLength <= MAX_AUDIO_BYTES) return { data, mime };
-    } else {
-      await res?.body?.cancel().catch(() => {});
-    }
+  const res = await fetch(`${GATEWAY_URL}/media_download`, {
+    headers: { ...headers, "X-WhatsApp-Media-URL": info.url },
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!res.ok || !res.body) {
+    await res.body?.cancel().catch(() => {});
+    throw new Error(`media download failed (${res.status})`);
   }
-  throw new Error("media download failed");
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_AUDIO_BYTES) { await reader.cancel().catch(() => {}); throw new Error("voice note too large"); }
+    chunks.push(value);
+  }
+  if (total === 0) throw new Error("media download empty");
+  const data = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) { data.set(c, offset); offset += c.byteLength; }
+  return { data: data.buffer, mime };
 }
 
 function toBase64(buf: ArrayBuffer) {
