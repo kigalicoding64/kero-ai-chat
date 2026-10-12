@@ -89,25 +89,33 @@ export const Route = createFileRoute("/api/public/whatsapp/webhook")({
           }
         }
 
-        try {
-          if (event === "whatsapp.message") await handleInbound(supabaseAdmin, waValue(payload));
-          else if (event === "whatsapp.status") await handleStatus(supabaseAdmin, waValue(payload));
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          console.error("[whatsapp] processing failed", message);
+        const process = async () => {
+          try {
+            if (event === "whatsapp.message") await handleInbound(supabaseAdmin, waValue(payload));
+            else if (event === "whatsapp.status") await handleStatus(supabaseAdmin, waValue(payload));
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error("[whatsapp] processing failed", message);
+            await supabaseAdmin
+              .from("whatsapp_webhook_events")
+              .update({ processing_error: message.slice(0, 500) })
+              .eq("delivery_id", deliveryId);
+            return false;
+          }
           await supabaseAdmin
             .from("whatsapp_webhook_events")
-            .update({ processing_error: message.slice(0, 500) })
+            .update({ processed_at: new Date().toISOString(), processing_error: null })
             .eq("delivery_id", deliveryId);
-          return new Response("processing error", { status: 500 });
+          return true;
+        };
+
+        // Replies take longer than the gateway's 5s window, which cut the work off
+        // before Kero could answer. Acknowledge now and finish in the background.
+        if (event === "whatsapp.message" && (await runInBackground(process()))) {
+          return new Response("ok");
         }
-
-        await supabaseAdmin
-          .from("whatsapp_webhook_events")
-          .update({ processed_at: new Date().toISOString(), processing_error: null })
-          .eq("delivery_id", deliveryId);
-
-        return new Response("ok");
+        const ok = await process();
+        return ok ? new Response("ok") : new Response("processing error", { status: 500 });
       },
     },
   },
