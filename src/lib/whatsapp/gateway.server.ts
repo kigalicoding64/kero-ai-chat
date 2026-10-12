@@ -58,6 +58,26 @@ export async function sendWhatsAppText(
   }
 }
 
+/** Marks the message read and shows "typing…" until the reply is sent (max ~25s). */
+export async function sendTypingIndicator(messageId: string): Promise<void> {
+  try {
+    const res = await gatewayFetch("/messages", {
+      method: "POST",
+      signal: AbortSignal.timeout(4_000),
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        status: "read",
+        message_id: messageId,
+        typing_indicator: { type: "text" },
+      }),
+    });
+    if (!res.ok) console.warn("[whatsapp] typing indicator failed", res.status, (await res.text()).slice(0, 200));
+    else await res.body?.cancel().catch(() => {});
+  } catch (error) {
+    console.warn("[whatsapp] typing indicator failed", error);
+  }
+}
+
 /** The business number people should message, as displayed by Meta. */
 export async function getBusinessNumber(): Promise<string | null> {
   try {

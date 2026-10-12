@@ -65,7 +65,7 @@ export async function generateWhatsAppReply(history: Turn[]): Promise<string> {
       for (const candidate of [...new Set([model, ...GEMINI_FALLBACK_MODELS])].slice(0, 2)) {
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${candidate}:generateContent`, {
           method: "POST",
-          body: JSON.stringify({ ...geminiBody(messages), generationConfig: { temperature: 0.6 } }),
+          body: JSON.stringify({ ...geminiBody(messages), generationConfig: { temperature: 0.6, thinkingConfig: { thinkingBudget: 0 } } }),
           signal: AbortSignal.timeout(15_000),
           headers: { "x-goog-api-key": key, "content-type": "application/json" },
         });

@@ -170,14 +170,11 @@ async function runInBackground(task: Promise<unknown>): Promise<boolean> {
 }
 
 async function handleInbound(admin: Admin, value: WaValue) {
-  const { sendWhatsAppText } = await import("@/lib/whatsapp/gateway.server");
-  const { generateWhatsAppReply } = await import("@/lib/whatsapp/reply.server");
-  const contactName = value.contacts?.[0]?.profile?.name ?? null;
-
-  for (const message of value.messages ?? []) {
-    const from = message.from;
-    const waId = message.id;
+  const { sendWhatsAppText, sendTypingIndicator } = await import("@/lib/whatsapp/gateway.server");
+...
     if (!from || !waId) continue;
+    // Show "typing…" (and blue ticks) right away while Kero prepares the answer.
+    await sendTypingIndicator(waId);
     let text = (
       message.text?.body ??
       message.button?.text ??
