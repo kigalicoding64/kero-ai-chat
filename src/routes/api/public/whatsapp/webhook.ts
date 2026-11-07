@@ -200,6 +200,16 @@ async function handleInbound(admin: Admin, value: WaValue) {
       }
     }
 
+    // EGREED staff commands (rooms, tasks, stock, login...) are answered by EGREED, not the AI.
+    if (text) {
+      const { checkStaffRelay } = await import("@/lib/whatsapp/relay.server");
+      const relay = await checkStaffRelay(from, text);
+      if (relay.handled && relay.reply) {
+        await sendWhatsAppText(from, relay.reply);
+        continue;
+      }
+    }
+
     // Already handled (gateway retry or duplicate)?
     const { data: seen } = await admin
       .from("whatsapp_messages")
