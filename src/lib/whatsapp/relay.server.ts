@@ -8,7 +8,7 @@ export async function checkStaffRelay(
   const url = process.env["EGREED_RELAY_URL"] || DEFAULT_RELAY_URL;
   const secret = process.env["EGREED_RELAY_SECRET"] || "";
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 4000);
+  const timeoutId = setTimeout(() => controller.abort(), 1500);
   try {
     const res = await fetch(url, {
       method: "POST",

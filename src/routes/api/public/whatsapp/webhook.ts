@@ -152,7 +152,7 @@ async function handleStatus(admin: Admin, value: WaValue) {
 }
 
 /** Short pause so a quick follow-up message is answered together. */
-const REPLY_DELAY_MS = 800;
+const REPLY_DELAY_MS = 0;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -179,7 +179,7 @@ async function handleInbound(admin: Admin, value: WaValue) {
     const waId = message.id;
     if (!from || !waId) continue;
     // Show "typing…" (and blue ticks) right away while Kero prepares the answer.
-    await sendTypingIndicator(waId);
+    void sendTypingIndicator(waId).catch(() => {});
     let text = (
       message.text?.body ??
       message.button?.text ??
@@ -269,7 +269,7 @@ async function handleInbound(admin: Admin, value: WaValue) {
         continue;
       }
       if (!text) continue;
-      await sleep(REPLY_DELAY_MS);
+      if (REPLY_DELAY_MS) await sleep(REPLY_DELAY_MS);
       try {
         const reply = await generateWhatsAppReply([{ role: "user", content: text }]);
         await sendWhatsAppText(from, reply);
@@ -337,7 +337,7 @@ async function handleInbound(admin: Admin, value: WaValue) {
     }
 
     // Wait a moment: if they keep typing, the newer message answers for both.
-    await sleep(REPLY_DELAY_MS);
+    if (REPLY_DELAY_MS) await sleep(REPLY_DELAY_MS);
     const { data: newer } = await admin
       .from("whatsapp_messages")
       .select("id")
