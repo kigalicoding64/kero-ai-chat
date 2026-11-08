@@ -1,4 +1,6 @@
 # Kero provider settings
+- [ ] Enable bounded current online lookups and preserve authenticated live hotel relay results.
+- [ ] Test live sources and hotel fallback rules.
 - [x] Secure admin key entry, validation, and NVIDIA/Gemini selection.
 - [x] Apply the selected provider to web chat, WhatsApp, and connection checks.
 - [x] Personal-assistant guidance without claiming unsupported actions.
