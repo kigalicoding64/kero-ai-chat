@@ -8,9 +8,7 @@ type RelayResult = { handled: boolean; reply?: string };
 
 function relayUrls(): string[] {
   const custom = process.env["EGREED_RELAY_URL"];
-  const list = [LOVABLE_RELAY_URL, VERCEL_RELAY_URL];
-  if (custom && !list.includes(custom)) list.push(custom);
-  return list;
+  return [...new Set([custom || LOVABLE_RELAY_URL, VERCEL_RELAY_URL])];
 }
 
 async function tryRelay(url: string, phone: string, text: string, secret: string): Promise<RelayResult | null> {
@@ -43,6 +41,10 @@ async function tryRelay(url: string, phone: string, text: string, secret: string
 
 export async function checkStaffRelay(phone: string, text: string): Promise<RelayResult> {
   const secret = process.env["EGREED_RELAY_SECRET"] || "";
+  if (!secret) {
+    console.warn("[EGREED Relay] Relay authentication is not configured; using Kero instead.");
+    return { handled: false };
+  }
   for (const url of relayUrls().slice(0, 2)) {
     const result = await tryRelay(url, phone, text, secret);
     if (result) return result;
