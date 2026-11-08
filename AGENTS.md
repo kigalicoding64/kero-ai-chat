@@ -12,3 +12,4 @@
 - Keep official customer support tone and illustrative exchanges in a shared server-only AI guidance module used by the web and WhatsApp prompts, so channels stay consistent without exposing hidden instructions.
 - Resolve the global AI provider on the server for web chat, WhatsApp, diagnostics, and health checks; normalize provider streams to the existing chat SSE format to preserve the UI.
 - Store administrator-entered provider keys as AES-GCM ciphertext in a service-role-only settings table using a dedicated environment encryption secret; validate admin roles and a real completion before saving or activating, and never return stored keys.
+- Keep public live lookups in the shared server-only web context module with a single abort deadline and dated sources; private hotel results come only from the authenticated WhatsApp relay, which honors the configured primary URL and retains Vercel fallback.
