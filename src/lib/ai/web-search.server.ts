@@ -52,7 +52,7 @@ function xmlText(value: string): string {
 
 async function news(q: string, signal: AbortSignal): Promise<string[]> {
   try {
-    const res = await fetch(`https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en&gl=US&ceid=US:en`, { signal });
+    const res = await fetch(`https://news.google.com/rss/search?q=${encodeURIComponent(`${q} when:7d`)}&hl=en&gl=US&ceid=US:en`, { signal });
     if (!res.ok) { await res.body?.cancel(); return []; }
     const xml = (await res.text()).slice(0, 150000);
     return [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].slice(0, 4).flatMap((match) => {

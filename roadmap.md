@@ -1,6 +1,8 @@
 # Kero provider settings
-- [ ] Enable bounded current online lookups and preserve authenticated live hotel relay results.
-- [ ] Test live sources and hotel fallback rules.
+- [x] Enable bounded current online lookups and preserve authenticated live hotel relay results.
+- [x] Test live sources and hotel fallback rules — 11 tests passed; real Kigali weather and news retrieved.
+- [ ] Confirm live hotel staff results — requires an authorized staff command; unknown sender was not handled.
+- [ ] Verify signed-in live-information chat — requester has no matching account; sign in to the preview.
 - [x] Secure admin key entry, validation, and NVIDIA/Gemini selection.
 - [x] Apply the selected provider to web chat, WhatsApp, and connection checks.
 - [x] Personal-assistant guidance without claiming unsupported actions.
