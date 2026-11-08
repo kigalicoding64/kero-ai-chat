@@ -7,6 +7,7 @@ const SKIP = /^(hi|hey|hello|hy|yo|muraho|mwaramutse|mwiriwe|amakuru|bite|sawa|o
 const LOOKUP = /\b(who|what|when|where|which|how many|how much|latest|news|today|current|live|price|weather|capital|population|define|meaning|history|search|look up|google|ninde|iki|ryari|hehe|amakuru|ubu|uyu munsi|ikirere|qui|quoi|quand|où|actualités|météo|nani|nini|lini|wapi|habari|hali ya hewa)\b|\?/i;
 const CURRENT = /\b(latest|news|today|current|live|now|price|weather|amakuru|ubu|uyu munsi|ikirere|actualités|météo|aujourd'hui|habari|leo|hali ya hewa)\b/i;
 const WEATHER = /\b(weather|ikirere|météo|hali ya hewa)\b/i;
+const HOTEL_DATA = /^(?:\[Voice note\]\s*)?(?:login|rooms?|tasks?|stock)(?:\s|$)|\b(?:our|my|egreed|hotel)\b.*\b(?:rooms?|tasks?|stock|inventory|occupancy|bookings?)\b|\b(?:rooms?|tasks?|stock|inventory|occupancy|bookings?)\b.*\b(?:our|my|egreed|hotel)\b/i;
 const LOOKUP_TIMEOUT_MS = 3000;
 
 export function needsLookup(text: string) {
@@ -21,7 +22,8 @@ function cleanQuery(text: string) {
 async function getJson(url: string, signal: AbortSignal): Promise<any> {
   try {
     const res = await fetch(url, { headers: { "user-agent": "KeroAI/1.0 (https://kero.egreedtech.org)", accept: "application/json" }, signal });
-    return res.ok ? await res.json() : null;
+    if (!res.ok) { await res.body?.cancel(); return null; }
+    return await res.json();
   } catch { return null; }
 }
 
@@ -83,6 +85,7 @@ async function weather(text: string, signal: AbortSignal): Promise<string[]> {
 /** Returns a reference block for the latest user message, or "" when no lookup is useful. */
 export async function webContextFor(history: Turn[]): Promise<string> {
   const last = [...history].reverse().find((m) => m.role === "user")?.content ?? "";
+  if (HOTEL_DATA.test(last)) return "\n\nPrivate hotel data requested. Do not send this request to public search or invent room/task/stock results. Only authenticated EGREED relay results can verify live hotel information; if none are supplied, explain that access is unavailable and direct the user to their authorized WhatsApp staff command.";
   if (!needsLookup(last)) return "";
   const q = cleanQuery(last);
   if (q.length < 3) return "";
