@@ -5,6 +5,7 @@ import { ArrowLeft, CircleAlert, CircleCheck, CircleDashed, Play, TriangleAlert 
 
 import { KeroMark } from "@/components/kero/KeroMark";
 import { AiProviderSettings } from '@/components/kero/AiProviderSettings';
+import { StaffTools } from '@/components/kero/StaffTools';
 import { getAiAdminAccess } from '@/lib/provider-settings.functions';
 import { Button } from "@/components/ui/button";
 import { getProviderStatus, listAuditLogs, runConnectionTest } from "@/lib/diagnostics.functions";
@@ -73,6 +74,7 @@ function AdminPage() {
         </div>
 
         <AiProviderSettings />
+        <StaffTools />
 
         {configured === false && (
           <div className="mt-6 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm">
