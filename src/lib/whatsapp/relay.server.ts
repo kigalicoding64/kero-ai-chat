@@ -2,7 +2,7 @@
 // Tries the Lovable-hosted relay first, then the Vercel one, then falls back to Kero AI.
 const LOVABLE_RELAY_URL = "https://egreed-hostel-os.lovable.app/api/public/whatsapp/relay";
 const VERCEL_RELAY_URL = "https://egreed-hostel-os.vercel.app/api/public/whatsapp/relay";
-const PER_RELAY_TIMEOUT_MS = 1200;
+const PER_RELAY_TIMEOUT_MS = 2000;
 
 type RelayResult = { handled: boolean; reply?: string };
 
