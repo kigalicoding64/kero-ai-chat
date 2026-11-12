@@ -2,13 +2,13 @@
 // Tries the Lovable-hosted relay first, then the Vercel one, then falls back to Kero AI.
 const LOVABLE_RELAY_URL = "https://egreed-hostel-os.lovable.app/api/public/whatsapp/relay";
 const VERCEL_RELAY_URL = "https://egreed-hostel-os.vercel.app/api/public/whatsapp/relay";
-const PER_RELAY_TIMEOUT_MS = 1200;
+const PER_RELAY_TIMEOUT_MS = 3500;
 
 type RelayResult = { handled: boolean; reply?: string };
 
 function relayUrls(): string[] {
   const custom = process.env["EGREED_RELAY_URL"];
-  return [...new Set([custom || LOVABLE_RELAY_URL, VERCEL_RELAY_URL])];
+  return [...new Set([custom || LOVABLE_RELAY_URL, LOVABLE_RELAY_URL, VERCEL_RELAY_URL])];
 }
 
 async function tryRelay(url: string, phone: string, text: string, secret: string): Promise<RelayResult | null> {
@@ -45,7 +45,7 @@ export async function checkStaffRelay(phone: string, text: string): Promise<Rela
     console.warn("[EGREED Relay] Relay authentication is not configured; using Kero instead.");
     return { handled: false };
   }
-  for (const url of relayUrls().slice(0, 2)) {
+  for (const url of relayUrls()) {
     const result = await tryRelay(url, phone, text, secret);
     if (result) return result;
   }
